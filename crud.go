@@ -131,8 +131,9 @@ func (db *Executor) selectArr() []map[string]interface{} {
 	havingStr, paramList := handleHaving(db.HavingList, paramList)
 	orderStr := handleOrder(db.OrderList)
 	limitStr, paramList := handleLimit(db.Offset, db.PageSize, paramList)
+	lockStr := handleLock(db.IsLock)
 
-	sqlStr := "SELECT " + fieldStr + " FROM " + db.TableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr
+	sqlStr := "SELECT " + fieldStr + " FROM " + db.TableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
 	res, _ := db.Query(sqlStr, paramList...)
 
 	return res
@@ -461,6 +462,12 @@ func (db *Executor) Page(pageNum int, pageSize int) *Executor {
 	return db
 }
 
+// Lock 加锁
+func (db *Executor) Lock(isLock bool) *Executor {
+	db.IsLock = isLock
+	return db
+}
+
 //拼接SQL,字段相关
 func handleField(filedList []string) string {
 	if len(filedList) == 0 {
@@ -555,6 +562,15 @@ func handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
 	paramList = append(paramList, pageSize)
 
 	return " Limit ?,? ", paramList
+}
+
+//拼接SQL,锁
+func handleLock(isLock bool) string {
+	if isLock {
+		return " FOR UPDATE"
+	}
+
+	return ""
 }
 
 //拼接SQL,查询与筛选通用操作

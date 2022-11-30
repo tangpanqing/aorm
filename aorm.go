@@ -25,6 +25,7 @@ type Executor struct {
 	Offset      int
 	PageSize    int
 	IsDebug     bool
+	IsLock      bool
 	OpinionList []OpinionItem
 }
 
@@ -49,5 +50,6 @@ func (db *Executor) clear() {
 	db.Offset = 0
 	db.PageSize = 0
 	db.IsDebug = false
+	db.IsLock = false
 	db.OpinionList = make([]OpinionItem, 0)
 }
