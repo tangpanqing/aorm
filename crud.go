@@ -78,12 +78,12 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 	return lastId, nil
 }
 
-// Select 查询记录
-func (db *Executor) Select(values interface{}) error {
+// GetMany 查询记录
+func (db *Executor) GetMany(values interface{}) error {
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
 
-	res := db.selectArr()
+	res := db.GetMapArr()
 	for i := 0; i < len(res); i++ {
 		dest := reflect.New(destType).Elem()
 
@@ -101,11 +101,11 @@ func (db *Executor) Select(values interface{}) error {
 	return nil
 }
 
-// Find 查询某一条记录
-func (db *Executor) Find(obj interface{}) error {
+// GetOne 查询某一条记录
+func (db *Executor) GetOne(obj interface{}) error {
 
 	dest := reflect.ValueOf(obj).Elem()
-	res := db.Limit(0, 1).selectArr()
+	res := db.Limit(0, 1).GetMapArr()
 	if len(res) == 0 {
 		return errors.New("record not found")
 	}
@@ -122,16 +122,16 @@ func (db *Executor) Find(obj interface{}) error {
 	return nil
 }
 
-func (db *Executor) selectArr() []map[string]interface{} {
+func (db *Executor) GetMapArr() []map[string]interface{} {
 	var paramList []any
-	fieldStr := handleField(db.FiledList)
+	fieldStr := handleField(db.SelectList)
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
 	joinStr := handleJoin(db.JoinList)
 	groupStr := handleGroup(db.GroupList)
 	havingStr, paramList := handleHaving(db.HavingList, paramList)
 	orderStr := handleOrder(db.OrderList)
 	limitStr, paramList := handleLimit(db.Offset, db.PageSize, paramList)
-	lockStr := handleLock(db.IsLock)
+	lockStr := handleLockForUpdate(db.IsLockForUpdate)
 
 	sqlStr := "SELECT " + fieldStr + " FROM " + db.TableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
 	res, _ := db.Query(sqlStr, paramList...)
@@ -236,7 +236,7 @@ func (db *Executor) Delete() (int64, error) {
 // Count 聚合函数-数量
 func (db *Executor) Count(fieldName string) int64 {
 	var obj []CountStruct
-	err := db.Field("count(" + fieldName + ") as c").Select(&obj)
+	err := db.Select("count(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0
 	}
@@ -247,7 +247,7 @@ func (db *Executor) Count(fieldName string) int64 {
 // Sum 聚合函数-合计
 func (db *Executor) Sum(fieldName string) int64 {
 	var obj []CountStruct
-	err := db.Field("sum(" + fieldName + ") as c").Select(&obj)
+	err := db.Select("sum(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0
 	}
@@ -258,7 +258,7 @@ func (db *Executor) Sum(fieldName string) int64 {
 // Avg 聚合函数-平均值
 func (db *Executor) Avg(fieldName string) int64 {
 	var obj []CountStruct
-	err := db.Field("avg(" + fieldName + ") as c").Select(&obj)
+	err := db.Select("avg(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0
 	}
@@ -269,7 +269,7 @@ func (db *Executor) Avg(fieldName string) int64 {
 // Max 聚合函数-最大值
 func (db *Executor) Max(fieldName string) int64 {
 	var obj []CountStruct
-	err := db.Field("avg(" + fieldName + ") as c").Select(&obj)
+	err := db.Select("avg(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0
 	}
@@ -280,12 +280,62 @@ func (db *Executor) Max(fieldName string) int64 {
 // Min 聚合函数-最小值
 func (db *Executor) Min(fieldName string) int64 {
 	var obj []CountStruct
-	err := db.Field("avg(" + fieldName + ") as c").Select(&obj)
+	err := db.Select("avg(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0
 	}
 
 	return obj[0].C.Int64
+}
+
+// Value 字段值,注意返回值类型为string
+func (db *Executor) Value(fieldName string) (string, error) {
+	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
+	if len(obj) == 0 {
+		return "", errors.New("找不到值")
+	}
+
+	return obj[0]["fieldName"].(string), nil
+}
+
+// Increment 某字段自增
+func (db *Executor) Increment(fieldName string, step int) (int64, error) {
+	var paramList []any
+	paramList = append(paramList, step)
+	whereStr, paramList := handleWhere(db.WhereList, paramList)
+	sqlStr := "UPDATE " + db.TableName + " SET " + fieldName + "=" + fieldName + "+?" + whereStr
+
+	res, err := db.Exec(sqlStr, paramList...)
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// Decrement 某字段自减
+func (db *Executor) Decrement(fieldName string, step int) (int64, error) {
+	var paramList []any
+	paramList = append(paramList, step)
+	whereStr, paramList := handleWhere(db.WhereList, paramList)
+	sqlStr := "UPDATE " + db.TableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
+
+	res, err := db.Exec(sqlStr, paramList...)
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // Query 通用查询
@@ -371,9 +421,9 @@ func (db *Executor) Debug(isDebug bool) *Executor {
 	return db
 }
 
-// Field 链式操作-查询哪些字段,默认 *
-func (db *Executor) Field(f string) *Executor {
-	db.FiledList = append(db.FiledList, f)
+// Select 链式操作-查询哪些字段,默认 *
+func (db *Executor) Select(f string) *Executor {
+	db.SelectList = append(db.SelectList, f)
 	return db
 }
 
@@ -401,12 +451,6 @@ func (db *Executor) Join(tableName string, condition string) *Executor {
 	return db
 }
 
-// WhereArr 链式操作,以数组作为查询条件
-func (db *Executor) WhereArr(whereList []WhereItem) *Executor {
-	db.WhereList = append(db.WhereList, whereList...)
-	return db
-}
-
 // Where 链式操作,以对象作为查询条件
 func (db *Executor) Where(dest interface{}) *Executor {
 	typeOf := reflect.TypeOf(dest)
@@ -430,8 +474,14 @@ func (db *Executor) Where(dest interface{}) *Executor {
 	return db
 }
 
-// Group 链式操作,以某字段进行分组
-func (db *Executor) Group(f string) *Executor {
+// WhereArr 链式操作,以数组作为查询条件
+func (db *Executor) WhereArr(whereList []WhereItem) *Executor {
+	db.WhereList = append(db.WhereList, whereList...)
+	return db
+}
+
+// GroupBy 链式操作,以某字段进行分组
+func (db *Executor) GroupBy(f string) *Executor {
 	db.GroupList = append(db.GroupList, f)
 	return db
 }
@@ -465,8 +515,8 @@ func (db *Executor) HavingArr(havingList []WhereItem) *Executor {
 	return db
 }
 
-// Order 链式操作,以某字段进行排序
-func (db *Executor) Order(field string, orderType string) *Executor {
+// OrderBy 链式操作,以某字段进行排序
+func (db *Executor) OrderBy(field string, orderType string) *Executor {
 	db.OrderList = append(db.OrderList, field+" "+orderType)
 	return db
 }
@@ -485,19 +535,19 @@ func (db *Executor) Page(pageNum int, pageSize int) *Executor {
 	return db
 }
 
-// Lock 加锁
-func (db *Executor) Lock(isLock bool) *Executor {
-	db.IsLock = isLock
+// LockForUpdate 加锁
+func (db *Executor) LockForUpdate(isLockForUpdate bool) *Executor {
+	db.IsLockForUpdate = isLockForUpdate
 	return db
 }
 
 //拼接SQL,字段相关
-func handleField(filedList []string) string {
-	if len(filedList) == 0 {
+func handleField(selectList []string) string {
+	if len(selectList) == 0 {
 		return "*"
 	}
 
-	return strings.Join(filedList, ",")
+	return strings.Join(selectList, ",")
 }
 
 //拼接SQL,查询条件
@@ -588,7 +638,7 @@ func handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
 }
 
 //拼接SQL,锁
-func handleLock(isLock bool) string {
+func handleLockForUpdate(isLock bool) string {
 	if isLock {
 		return " FOR UPDATE"
 	}

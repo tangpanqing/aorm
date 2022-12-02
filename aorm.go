@@ -14,19 +14,19 @@ type LinkCommon interface {
 
 // Executor 查询记录所需要的条件
 type Executor struct {
-	LinkCommon  LinkCommon
-	TableName   string
-	FiledList   []string
-	GroupList   []string
-	WhereList   []WhereItem
-	JoinList    []string
-	HavingList  []WhereItem
-	OrderList   []string
-	Offset      int
-	PageSize    int
-	IsDebug     bool
-	IsLock      bool
-	OpinionList []OpinionItem
+	LinkCommon      LinkCommon
+	TableName       string
+	SelectList      []string
+	GroupList       []string
+	WhereList       []WhereItem
+	JoinList        []string
+	HavingList      []WhereItem
+	OrderList       []string
+	Offset          int
+	PageSize        int
+	IsDebug         bool
+	IsLockForUpdate bool
+	OpinionList     []OpinionItem
 }
 
 // Use 使用数据库连接，或者事务
@@ -41,7 +41,7 @@ func Use(linkCommon LinkCommon) *Executor {
 //清空查询条件,复用对象
 func (db *Executor) clear() {
 	db.TableName = ""
-	db.FiledList = make([]string, 0)
+	db.SelectList = make([]string, 0)
 	db.GroupList = make([]string, 0)
 	db.WhereList = make([]WhereItem, 0)
 	db.JoinList = make([]string, 0)
@@ -50,6 +50,6 @@ func (db *Executor) clear() {
 	db.Offset = 0
 	db.PageSize = 0
 	db.IsDebug = false
-	db.IsLock = false
+	db.IsLockForUpdate = false
 	db.OpinionList = make([]OpinionItem, 0)
 }
