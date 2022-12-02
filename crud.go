@@ -106,8 +106,8 @@ func (db *Executor) Find(obj interface{}) error {
 
 	dest := reflect.ValueOf(obj).Elem()
 	res := db.Limit(0, 1).selectArr()
-	if len(res[0]) == 0 {
-		return errors.New("找不到相关信息")
+	if len(res) == 0 {
+		return errors.New("record not found")
 	}
 
 	for k, v := range res[0] {
@@ -436,8 +436,31 @@ func (db *Executor) Group(f string) *Executor {
 	return db
 }
 
+// Having 链式操作,以对象作为筛选条件
+func (db *Executor) Having(dest interface{}) *Executor {
+	typeOf := reflect.TypeOf(dest)
+	valueOf := reflect.ValueOf(dest)
+
+	//如果没有设置表名
+	if db.TableName == "" {
+		arr := strings.Split(typeOf.String(), ".")
+		db.TableName = UnderLine(arr[len(arr)-1])
+	}
+
+	for i := 0; i < typeOf.Elem().NumField(); i++ {
+		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
+		if isNotNull {
+			key := UnderLine(typeOf.Elem().Field(i).Name)
+			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
+			db.HavingList = append(db.HavingList, WhereItem{Field: key, Opt: Eq, Val: val})
+		}
+	}
+
+	return db
+}
+
 // Having 链式操作,以数组作为筛选条件
-func (db *Executor) Having(havingList []WhereItem) *Executor {
+func (db *Executor) HavingArr(havingList []WhereItem) *Executor {
 	db.HavingList = havingList
 	return db
 }
