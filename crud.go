@@ -342,7 +342,7 @@ func (db *Executor) Decrement(fieldName string, step int) (int64, error) {
 func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]interface{}, error) {
 	if db.IsDebug {
 		fmt.Println(sqlStr)
-		fmt.Println(args)
+		fmt.Println(args...)
 	}
 
 	var listData []map[string]interface{}
@@ -398,7 +398,7 @@ func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]inte
 func (db *Executor) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
 	if db.IsDebug {
 		fmt.Println(sqlStr)
-		fmt.Println(args)
+		fmt.Println(args...)
 	}
 
 	smt, err1 := db.LinkCommon.Prepare(sqlStr)
