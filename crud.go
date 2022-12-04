@@ -698,10 +698,16 @@ func toAnyArr(val any) []any {
 	switch val.(type) {
 	case []int:
 		for _, value := range val.([]int) {
-			values = append(values, strconv.Itoa(value))
+			values = append(values, value)
+		}
+	case []int64:
+		for _, value := range val.([]int64) {
+			values = append(values, value)
 		}
 	case []string:
-		values = val.([]any)
+		for _, value := range val.([]string) {
+			values = append(values, value)
+		}
 	}
 
 	return values
