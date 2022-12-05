@@ -377,9 +377,9 @@ func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]inte
 			if v == nil {
 				data[fields[i]] = v
 			} else {
-				if fieldsTypes[i].DatabaseTypeName() == "VARCHAR" || fieldsTypes[i].DatabaseTypeName() == "TEXT" {
+				if fieldsTypes[i].DatabaseTypeName() == "VARCHAR" || fieldsTypes[i].DatabaseTypeName() == "TEXT" || fieldsTypes[i].DatabaseTypeName() == "CHAR" || fieldsTypes[i].DatabaseTypeName() == "LONGTEXT" {
 					data[fields[i]] = fmt.Sprintf("%s", v)
-				} else if fieldsTypes[i].DatabaseTypeName() == "INT" || fieldsTypes[i].DatabaseTypeName() == "BIGINT" {
+				} else if fieldsTypes[i].DatabaseTypeName() == "INT" || fieldsTypes[i].DatabaseTypeName() == "BIGINT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED INT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED BIGINT" {
 					data[fields[i]] = fmt.Sprintf("%v", v)
 				} else {
 					data[fields[i]] = v
