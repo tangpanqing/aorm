@@ -84,7 +84,7 @@ func TestAll(t *testing.T) {
 
 	testTransaction(db)
 
-	//testTruncate(db)
+	testTruncate(db)
 }
 
 func testConnect() *sql.DB {
