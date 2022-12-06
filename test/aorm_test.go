@@ -5,43 +5,43 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/tangpanqing/aorm"
-	"gopkg.in/guregu/null.v4"
 	"testing"
 	"time"
 )
 
 type Article struct {
-	Id          null.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
-	Type        null.Int    `aorm:"index;comment:类型" json:"type"`
-	PersonId    null.Int    `aorm:"comment:人员Id" json:"personId"`
-	ArticleBody null.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
+	Id          aorm.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
+	Type        aorm.Int    `aorm:"index;comment:类型" json:"type"`
+	PersonId    aorm.Int    `aorm:"comment:人员Id" json:"personId"`
+	ArticleBody aorm.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
 }
 
 type ArticleVO struct {
-	Id          null.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
-	Type        null.Int    `aorm:"index;comment:类型" json:"type"`
-	PersonId    null.Int    `aorm:"comment:人员Id" json:"personId"`
-	PersonName  null.Int    `aorm:"comment:人员名称" json:"personName"`
-	ArticleBody null.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
+	Id          aorm.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
+	Type        aorm.Int    `aorm:"index;comment:类型" json:"type"`
+	PersonId    aorm.Int    `aorm:"comment:人员Id" json:"personId"`
+	PersonName  aorm.Int    `aorm:"comment:人员名称" json:"personName"`
+	ArticleBody aorm.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
 }
 
 type Person struct {
-	Id         null.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
-	Name       null.String `aorm:"size:100;not null;comment:名字" json:"name"`
-	Sex        null.Bool   `aorm:"index;comment:性别" json:"sex"`
-	Age        null.Int    `aorm:"index;comment:年龄" json:"age"`
-	Type       null.Int    `aorm:"index;comment:类型" json:"type"`
-	CreateTime null.Time   `aorm:"comment:创建时间" json:"createTime"`
-	Money      null.Float  `aorm:"comment:金额" json:"money"`
-	Test       null.Float  `aorm:"type:double;comment:测试" json:"test"`
+	Id         aorm.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
+	Name       aorm.String `aorm:"size:100;not null;comment:名字" json:"name"`
+	Sex        aorm.Bool   `aorm:"index;comment:性别" json:"sex"`
+	Age        aorm.Int    `aorm:"index;comment:年龄" json:"age"`
+	Type       aorm.Int    `aorm:"index;comment:类型" json:"type"`
+	CreateTime aorm.Time   `aorm:"comment:创建时间" json:"createTime"`
+	Money      aorm.Float  `aorm:"comment:金额" json:"money"`
+	Test       aorm.Float  `aorm:"type:double;comment:测试" json:"test"`
 }
 
 type PersonAge struct {
-	Age      null.Int
-	AgeCount null.Int
+	Age      aorm.Int
+	AgeCount aorm.Int
 }
 
 func TestAll(t *testing.T) {
+
 	db := testConnect()
 	defer db.Close()
 
@@ -49,6 +49,9 @@ func TestAll(t *testing.T) {
 	testShowCreateTable(db)
 
 	id := testInsert(db)
+
+	fmt.Println(id)
+	return
 	testGetOne(db, id)
 	testGetMany(db)
 	testUpdate(db, id)
@@ -83,7 +86,6 @@ func TestAll(t *testing.T) {
 	testExec(db)
 
 	testTransaction(db)
-
 	testTruncate(db)
 }
 
@@ -117,21 +119,21 @@ func testMigrate(db *sql.DB) {
 func testShowCreateTable(db *sql.DB) {
 	fmt.Println("--- testShowCreateTable ---")
 
-	showCreate := aorm.Use(db).ShowCreateTable("person")
-	fmt.Println(showCreate)
+	//showCreate := aorm.Use(db).ShowCreateTable("person")
+	//fmt.Println(showCreate)
 }
 
 func testInsert(db *sql.DB) int64 {
 	fmt.Println("--- testInsert ---")
 
 	id, errInsert := aorm.Use(db).Debug(true).Insert(&Person{
-		Name:       null.StringFrom("Alice"),
-		Sex:        null.BoolFrom(false),
-		Age:        null.IntFrom(18),
-		Type:       null.IntFrom(0),
-		CreateTime: null.TimeFrom(time.Now()),
-		Money:      null.FloatFrom(100.15987654321),
-		Test:       null.FloatFrom(200.15987654321987654321),
+		Name:       aorm.StringFrom("Alice"),
+		Sex:        aorm.BoolFrom(false),
+		Age:        aorm.IntFrom(18),
+		Type:       aorm.IntFrom(0),
+		CreateTime: aorm.TimeFrom(time.Now()),
+		Money:      aorm.FloatFrom(100.15987654321),
+		Test:       aorm.FloatFrom(200.15987654321987654321),
 	})
 	if errInsert != nil {
 		fmt.Println(errInsert)
@@ -145,7 +147,7 @@ func testGetOne(db *sql.DB, id int64) {
 	fmt.Println("--- testGetOne ---")
 
 	var person Person
-	errFind := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).GetOne(&person)
+	errFind := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).GetOne(&person)
 	if errFind != nil {
 		fmt.Println(errFind)
 	}
@@ -156,7 +158,7 @@ func testGetMany(db *sql.DB) {
 	fmt.Println("--- testGetMany ---")
 
 	var list []Person
-	errSelect := aorm.Use(db).Debug(true).Where(&Person{Type: null.IntFrom(0)}).GetMany(&list)
+	errSelect := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).GetMany(&list)
 	if errSelect != nil {
 		fmt.Println(errSelect)
 	}
@@ -168,7 +170,7 @@ func testGetMany(db *sql.DB) {
 func testUpdate(db *sql.DB, id int64) {
 	fmt.Println("--- testUpdate ---")
 
-	countUpdate, errUpdate := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).Update(&Person{Name: null.StringFrom("Bob")})
+	countUpdate, errUpdate := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Update(&Person{Name: aorm.StringFrom("Bob")})
 	if errUpdate != nil {
 		fmt.Println(errUpdate)
 	}
@@ -178,7 +180,7 @@ func testUpdate(db *sql.DB, id int64) {
 func testDelete(db *sql.DB, id int64) {
 	fmt.Println("--- testDelete ---")
 
-	countDelete, errDelete := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).Delete()
+	countDelete, errDelete := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Delete()
 	if errDelete != nil {
 		fmt.Println(errDelete)
 	}
@@ -188,14 +190,14 @@ func testDelete(db *sql.DB, id int64) {
 func testTable(db *sql.DB) {
 	fmt.Println("--- testTable ---")
 
-	aorm.Use(db).Debug(true).Table("person_1").Insert(&Person{Name: null.StringFrom("Cherry")})
+	aorm.Use(db).Debug(true).Table("person_1").Insert(&Person{Name: aorm.StringFrom("Cherry")})
 }
 
 func testSelect(db *sql.DB) {
 	fmt.Println("--- testSelect ---")
 
 	var listByFiled []Person
-	aorm.Use(db).Debug(true).Select("name,age").Where(&Person{Age: null.IntFrom(18)}).GetMany(&listByFiled)
+	aorm.Use(db).Debug(true).Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
 }
 
 func testWhere(db *sql.DB) {
@@ -211,7 +213,7 @@ func testWhere(db *sql.DB) {
 	where1 = append(where1, aorm.WhereItem{Field: "money", Opt: aorm.Eq, Val: 100.15})
 	where1 = append(where1, aorm.WhereItem{Field: "name", Opt: aorm.Like, Val: []string{"%", "li", "%"}})
 
-	aorm.Use(db).Debug(true).Table("person").WhereArr(where1).GetMany(&listByWhere)
+	aorm.Use(db).Debug(true).Table("person").Where(where1).GetMany(&listByWhere)
 	for i := 0; i < len(listByWhere); i++ {
 		fmt.Println(listByWhere[i])
 	}
@@ -325,7 +327,7 @@ func testLock(db *sql.DB, id int64) {
 	fmt.Println("--- testLock ---")
 
 	var itemByLock Person
-	err := aorm.Use(db).Debug(true).LockForUpdate(true).Where(&Person{Id: null.IntFrom(id)}).GetOne(&itemByLock)
+	err := aorm.Use(db).Debug(true).LockForUpdate(true).Where(&Person{Id: aorm.IntFrom(id)}).GetOne(&itemByLock)
 	if err != nil {
 		panic(err)
 	}
@@ -335,7 +337,7 @@ func testLock(db *sql.DB, id int64) {
 func testIncrement(db *sql.DB, id int64) {
 	fmt.Println("--- testIncrement ---")
 
-	count, err := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).Increment("age", 1)
+	count, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Increment("age", 1)
 	if err != nil {
 		panic(err)
 	}
@@ -345,7 +347,7 @@ func testIncrement(db *sql.DB, id int64) {
 func testDecrement(db *sql.DB, id int64) {
 	fmt.Println("--- testDecrement ---")
 
-	count, err := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).Decrement("age", 2)
+	count, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Decrement("age", 2)
 	if err != nil {
 		panic(err)
 	}
@@ -355,7 +357,7 @@ func testDecrement(db *sql.DB, id int64) {
 func testValue(db *sql.DB, id int64) {
 	fmt.Println("--- testValue ---")
 
-	name, err := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).Value("name")
+	name, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("name")
 	if err != nil {
 		panic(err)
 	}
@@ -365,7 +367,7 @@ func testValue(db *sql.DB, id int64) {
 func testValueInt64(db *sql.DB, id int64) {
 	fmt.Println("--- testValueInt64 ---")
 
-	age, err := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).ValueInt64("age")
+	age, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueInt64("age")
 	if err != nil {
 		panic(err)
 	}
@@ -375,7 +377,7 @@ func testValueInt64(db *sql.DB, id int64) {
 func testValueFloat32(db *sql.DB, id int64) {
 	fmt.Println("--- testValueFloat32 ---")
 
-	money, err := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).ValueFloat32("money")
+	money, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueFloat32("money")
 	if err != nil {
 		panic(err)
 	}
@@ -385,7 +387,7 @@ func testValueFloat32(db *sql.DB, id int64) {
 func testValueFloat64(db *sql.DB, id int64) {
 	fmt.Println("--- testValueFloat64 ---")
 
-	money, err := aorm.Use(db).Debug(true).Where(&Person{Id: null.IntFrom(id)}).ValueFloat64("test")
+	money, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueFloat64("test")
 	if err != nil {
 		panic(err)
 	}
@@ -395,7 +397,7 @@ func testValueFloat64(db *sql.DB, id int64) {
 func testCount(db *sql.DB) {
 	fmt.Println("--- testCount ---")
 
-	count, err := aorm.Use(db).Debug(true).Where(&Person{Age: null.IntFrom(18)}).Count("*")
+	count, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Count("*")
 	if err != nil {
 		panic(err)
 	}
@@ -405,7 +407,7 @@ func testCount(db *sql.DB) {
 func testSum(db *sql.DB) {
 	fmt.Println("--- testSum ---")
 
-	sum, err := aorm.Use(db).Debug(true).Where(&Person{Age: null.IntFrom(18)}).Sum("age")
+	sum, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Sum("age")
 	if err != nil {
 		panic(err)
 	}
@@ -415,7 +417,7 @@ func testSum(db *sql.DB) {
 func testAvg(db *sql.DB) {
 	fmt.Println("--- testAvg ---")
 
-	avg, err := aorm.Use(db).Debug(true).Where(&Person{Age: null.IntFrom(18)}).Avg("age")
+	avg, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Avg("age")
 	if err != nil {
 		panic(err)
 	}
@@ -425,7 +427,7 @@ func testAvg(db *sql.DB) {
 func testMin(db *sql.DB) {
 	fmt.Println("--- testMin ---")
 
-	min, err := aorm.Use(db).Debug(true).Where(&Person{Age: null.IntFrom(18)}).Min("age")
+	min, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Min("age")
 	if err != nil {
 		panic(err)
 	}
@@ -435,7 +437,7 @@ func testMin(db *sql.DB) {
 func testMax(db *sql.DB) {
 	fmt.Println("--- testMax ---")
 
-	max, err := aorm.Use(db).Debug(true).Where(&Person{Age: null.IntFrom(18)}).Max("age")
+	max, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Max("age")
 	if err != nil {
 		panic(err)
 	}
@@ -445,7 +447,7 @@ func testMax(db *sql.DB) {
 func testQuery(db *sql.DB) {
 	fmt.Println("--- testQuery ---")
 
-	resQuery, err := aorm.Use(db).Query("SELECT * FROM person WHERE id=? AND type=?", 1, 3)
+	resQuery, err := aorm.Use(db).Debug(true).Query("SELECT * FROM person WHERE id=? AND type=?", 1, 3)
 	if err != nil {
 		panic(err)
 	}
@@ -456,7 +458,7 @@ func testQuery(db *sql.DB) {
 func testExec(db *sql.DB) {
 	fmt.Println("--- testExec ---")
 
-	resExec, err := aorm.Use(db).Exec("UPDATE person SET name = ? WHERE id=?", "Bob", 3)
+	resExec, err := aorm.Use(db).Debug(true).Exec("UPDATE person SET name = ? WHERE id=?", "Bob", 3)
 	if err != nil {
 		panic(err)
 	}
@@ -469,7 +471,7 @@ func testTransaction(db *sql.DB) {
 	tx, _ := db.Begin()
 
 	id, errInsert := aorm.Use(tx).Insert(&Person{
-		Name: null.StringFrom("Alice"),
+		Name: aorm.StringFrom("Alice"),
 	})
 
 	if errInsert != nil {
@@ -479,9 +481,9 @@ func testTransaction(db *sql.DB) {
 	}
 
 	countUpdate, errUpdate := aorm.Use(tx).Where(&Person{
-		Id: null.IntFrom(id),
+		Id: aorm.IntFrom(id),
 	}).Update(&Person{
-		Name: null.StringFrom("Bob"),
+		Name: aorm.StringFrom("Bob"),
 	})
 
 	if errUpdate != nil {

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"gopkg.in/guregu/null.v4"
 	"reflect"
 	"strconv"
 	"strings"
@@ -35,11 +34,11 @@ type WhereItem struct {
 }
 
 type IntStruct struct {
-	C null.Int
+	C Int
 }
 
 type FloatStruct struct {
-	C null.Float
+	C Float
 }
 
 // Insert 增加记录
@@ -49,8 +48,7 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 
 	//如果没有设置表名
 	if db.TableName == "" {
-		arr := strings.Split(typeOf.String(), ".")
-		db.TableName = UnderLine(arr[len(arr)-1])
+		db.TableName = reflectTableName(typeOf, valueOf)
 	}
 
 	var keys []string
@@ -143,22 +141,22 @@ func (db *Executor) GetMapArr() []map[string]interface{} {
 
 func transToNullType(v interface{}, filedType string) reflect.Value {
 	x := reflect.ValueOf("")
-	if "null.String" == filedType {
+	if "aorm.String" == filedType {
 		if nil == v {
-			x = reflect.ValueOf(null.String{})
+			x = reflect.ValueOf(String{})
 		} else {
-			x = reflect.ValueOf(null.StringFrom(fmt.Sprintf("%v", v)))
+			x = reflect.ValueOf(StringFrom(fmt.Sprintf("%v", v)))
 		}
-	} else if "null.Int" == filedType {
+	} else if "aorm.Int" == filedType {
 		if nil == v {
-			x = reflect.ValueOf(null.Int{})
+			x = reflect.ValueOf(Int{})
 		} else {
 			int64Val, _ := strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
-			x = reflect.ValueOf(null.IntFrom(int64Val))
+			x = reflect.ValueOf(IntFrom(int64Val))
 		}
-	} else if "null.Time" == filedType {
+	} else if "aorm.Time" == filedType {
 		if nil == v {
-			x = reflect.ValueOf(null.Time{})
+			x = reflect.ValueOf(Time{})
 		} else {
 			timeStr := fmt.Sprintf("%v", v)
 			timeArr := strings.Split(timeStr, " ")
@@ -173,21 +171,21 @@ func transToNullType(v interface{}, filedType string) reflect.Value {
 				0,
 				time.Local,
 			)
-			x = reflect.ValueOf(null.TimeFrom(a))
+			x = reflect.ValueOf(TimeFrom(a))
 		}
-	} else if "null.Bool" == filedType {
+	} else if "aorm.Bool" == filedType {
 		if nil == v {
-			x = reflect.ValueOf(null.Bool{})
+			x = reflect.ValueOf(Bool{})
 		} else {
 			boolVal, _ := strconv.ParseBool(fmt.Sprintf("%v", v))
-			x = reflect.ValueOf(null.BoolFrom(boolVal))
+			x = reflect.ValueOf(BoolFrom(boolVal))
 		}
-	} else if "null.Float" == filedType {
+	} else if "aorm.Float" == filedType {
 		if nil == v {
-			x = reflect.ValueOf(null.Float{})
+			x = reflect.ValueOf(Float{})
 		} else {
 			float64Val, _ := strconv.ParseFloat(fmt.Sprintf("%v", v), 64)
-			x = reflect.ValueOf(null.FloatFrom(float64Val))
+			x = reflect.ValueOf(FloatFrom(float64Val))
 		}
 	} else {
 		panic("不受支持的类型转换" + filedType)
@@ -470,8 +468,7 @@ func (db *Executor) Where(dest interface{}) *Executor {
 
 	//如果没有设置表名
 	if db.TableName == "" {
-		arr := strings.Split(typeOf.String(), ".")
-		db.TableName = UnderLine(arr[len(arr)-1])
+		db.TableName = reflectTableName(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
@@ -505,8 +502,7 @@ func (db *Executor) Having(dest interface{}) *Executor {
 
 	//如果没有设置表名
 	if db.TableName == "" {
-		arr := strings.Split(typeOf.String(), ".")
-		db.TableName = UnderLine(arr[len(arr)-1])
+		db.TableName = reflectTableName(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
@@ -580,8 +576,7 @@ func (db *Executor) handleSet(dest interface{}, paramList []any) (string, []any)
 
 	//如果没有设置表名
 	if db.TableName == "" {
-		arr := strings.Split(typeOf.String(), ".")
-		db.TableName = UnderLine(arr[len(arr)-1])
+		db.TableName = reflectTableName(typeOf, valueOf)
 	}
 
 	var keys []string
@@ -758,4 +753,18 @@ func str2Int64(str string) int64 {
 		return 0
 	}
 	return dataNew
+}
+
+//反射表名,优先从方法获取,没有方法则从名字获取
+func reflectTableName(typeOf reflect.Type, valueOf reflect.Value) string {
+	method, isSet := typeOf.MethodByName("TableName")
+	if isSet {
+		var paramList []reflect.Value
+		paramList = append(paramList, valueOf)
+		res := method.Func.Call(paramList)
+		return res[0].String()
+	} else {
+		arr := strings.Split(typeOf.String(), ".")
+		return UnderLine(arr[len(arr)-1])
+	}
 }
