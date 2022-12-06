@@ -34,8 +34,12 @@ type WhereItem struct {
 	Val   any
 }
 
-type CountStruct struct {
+type IntStruct struct {
 	C null.Int
+}
+
+type FloatStruct struct {
+	C null.Float
 }
 
 // Insert 增加记录
@@ -82,11 +86,9 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 func (db *Executor) GetMany(values interface{}) error {
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
-
 	res := db.GetMapArr()
 	for i := 0; i < len(res); i++ {
 		dest := reflect.New(destType).Elem()
-
 		for k, v := range res[i] {
 			fieldName := CamelString(k)
 			if dest.FieldByName(fieldName).CanSet() {
@@ -201,17 +203,7 @@ func (db *Executor) Update(dest interface{}) (int64, error) {
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
 	sqlStr := "UPDATE " + db.TableName + setStr + whereStr
 
-	res, err := db.Exec(sqlStr, paramList...)
-	if err != nil {
-		return 0, err
-	}
-
-	count, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-
-	return count, nil
+	return db.ExecAffected(sqlStr, paramList...)
 }
 
 // Delete 删除记录
@@ -220,72 +212,69 @@ func (db *Executor) Delete() (int64, error) {
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
 	sqlStr := "DELETE FROM " + db.TableName + whereStr
 
-	res, err := db.Exec(sqlStr, paramList...)
-	if err != nil {
-		return 0, err
-	}
+	return db.ExecAffected(sqlStr, paramList...)
+}
 
-	count, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
+// Truncate 清空记录
+func (db *Executor) Truncate() (int64, error) {
+	sqlStr := "TRUNCATE TABLE  " + db.TableName
 
-	return count, nil
+	return db.ExecAffected(sqlStr)
 }
 
 // Count 聚合函数-数量
-func (db *Executor) Count(fieldName string) int64 {
-	var obj []CountStruct
+func (db *Executor) Count(fieldName string) (int64, error) {
+	var obj []IntStruct
 	err := db.Select("count(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	return obj[0].C.Int64
+	return obj[0].C.Int64, nil
 }
 
 // Sum 聚合函数-合计
-func (db *Executor) Sum(fieldName string) int64 {
-	var obj []CountStruct
+func (db *Executor) Sum(fieldName string) (float64, error) {
+	var obj []FloatStruct
 	err := db.Select("sum(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	return obj[0].C.Int64
+	return obj[0].C.Float64, nil
 }
 
 // Avg 聚合函数-平均值
-func (db *Executor) Avg(fieldName string) int64 {
-	var obj []CountStruct
+func (db *Executor) Avg(fieldName string) (float64, error) {
+	var obj []FloatStruct
 	err := db.Select("avg(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	return obj[0].C.Int64
+	return obj[0].C.Float64, nil
 }
 
 // Max 聚合函数-最大值
-func (db *Executor) Max(fieldName string) int64 {
-	var obj []CountStruct
-	err := db.Select("avg(" + fieldName + ") as c").GetMany(&obj)
+func (db *Executor) Max(fieldName string) (float64, error) {
+	var obj []FloatStruct
+	err := db.Select("max(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	return obj[0].C.Int64
+	return obj[0].C.Float64, nil
 }
 
 // Min 聚合函数-最小值
-func (db *Executor) Min(fieldName string) int64 {
-	var obj []CountStruct
-	err := db.Select("avg(" + fieldName + ") as c").GetMany(&obj)
+func (db *Executor) Min(fieldName string) (float64, error) {
+	var obj []FloatStruct
+	err := db.Select("min(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	return obj[0].C.Int64
+	return obj[0].C.Float64, nil
 }
 
 // Value 字段值,注意返回值类型为string
@@ -294,8 +283,34 @@ func (db *Executor) Value(fieldName string) (string, error) {
 	if len(obj) == 0 {
 		return "", errors.New("找不到值")
 	}
+	return obj[0][fieldName].(string), nil
+}
 
-	return obj[0]["fieldName"].(string), nil
+// ValueInt64 字段值,注意返回值类型为int64
+func (db *Executor) ValueInt64(fieldName string) (int64, error) {
+	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
+	if len(obj) == 0 {
+		return 0, errors.New("找不到值")
+	}
+	return str2Int64(obj[0][fieldName].(string)), nil
+}
+
+// ValueFloat32 字段值,注意返回值类型为float32
+func (db *Executor) ValueFloat32(fieldName string) (float32, error) {
+	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
+	if len(obj) == 0 {
+		return 0, errors.New("找不到值")
+	}
+	return obj[0][fieldName].(float32), nil
+}
+
+// ValueFloat64 字段值,注意返回值类型为float32
+func (db *Executor) ValueFloat64(fieldName string) (float64, error) {
+	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
+	if len(obj) == 0 {
+		return 0, errors.New("找不到值")
+	}
+	return obj[0][fieldName].(float64), nil
 }
 
 // Increment 某字段自增
@@ -305,17 +320,7 @@ func (db *Executor) Increment(fieldName string, step int) (int64, error) {
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
 	sqlStr := "UPDATE " + db.TableName + " SET " + fieldName + "=" + fieldName + "+?" + whereStr
 
-	res, err := db.Exec(sqlStr, paramList...)
-	if err != nil {
-		return 0, err
-	}
-
-	count, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-
-	return count, nil
+	return db.ExecAffected(sqlStr, paramList...)
 }
 
 // Decrement 某字段自减
@@ -325,17 +330,7 @@ func (db *Executor) Decrement(fieldName string, step int) (int64, error) {
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
 	sqlStr := "UPDATE " + db.TableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
 
-	res, err := db.Exec(sqlStr, paramList...)
-	if err != nil {
-		return 0, err
-	}
-
-	count, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-
-	return count, nil
+	return db.ExecAffected(sqlStr, paramList...)
 }
 
 // Query 通用查询
@@ -381,6 +376,8 @@ func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]inte
 					data[fields[i]] = fmt.Sprintf("%s", v)
 				} else if fieldsTypes[i].DatabaseTypeName() == "INT" || fieldsTypes[i].DatabaseTypeName() == "BIGINT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED INT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED BIGINT" {
 					data[fields[i]] = fmt.Sprintf("%v", v)
+				} else if fieldsTypes[i].DatabaseTypeName() == "DECIMAL" {
+					data[fields[i]] = string(v.([]uint8))
 				} else {
 					data[fields[i]] = v
 				}
@@ -413,6 +410,21 @@ func (db *Executor) Exec(sqlStr string, args ...interface{}) (sql.Result, error)
 
 	db.clear()
 	return res, nil
+}
+
+// ExecAffected 通用执行-更新,删除
+func (db *Executor) ExecAffected(sqlStr string, args ...interface{}) (int64, error) {
+	res, err := db.Exec(sqlStr, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // Debug 链式操作-是否开启调试,打印sql
@@ -509,7 +521,7 @@ func (db *Executor) Having(dest interface{}) *Executor {
 	return db
 }
 
-// Having 链式操作,以数组作为筛选条件
+// HavingArr 链式操作,以数组作为筛选条件
 func (db *Executor) HavingArr(havingList []WhereItem) *Executor {
 	db.HavingList = havingList
 	return db
@@ -651,8 +663,17 @@ func whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
 		if where[i].Opt == Eq || where[i].Opt == Ne || where[i].Opt == Gt || where[i].Opt == Ge || where[i].Opt == Lt || where[i].Opt == Le {
-			whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"?")
-			paramList = append(paramList, toStr(where[i].Val))
+			//如果是浮点数查询
+			switch where[i].Val.(type) {
+			case float32:
+				whereList = append(whereList, "CONCAT("+where[i].Field+",'') "+where[i].Opt+" "+"?")
+			case float64:
+				whereList = append(whereList, "CONCAT("+where[i].Field+",'') "+where[i].Opt+" "+"?")
+			default:
+				whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"?")
+			}
+
+			paramList = append(paramList, fmt.Sprintf("%v", where[i].Val))
 		}
 
 		if where[i].Opt == Between || where[i].Opt == NotBetween {
@@ -666,15 +687,17 @@ func whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 			var valueStr []string
 			for j := 0; j < len(values); j++ {
 				str := fmt.Sprintf("%v", values[j])
-				valueStr = append(valueStr, str)
 
 				if "%" != str {
+					//values[j] = "?"
 					paramList = append(paramList, str)
-					values[j] = "?"
+					valueStr = append(valueStr, "?")
+				} else {
+					valueStr = append(valueStr, "'"+str+"'")
 				}
 			}
 
-			whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+strings.Join(valueStr, ""))
+			whereList = append(whereList, where[i].Field+" "+where[i].Opt+" concat("+strings.Join(valueStr, ",")+")")
 		}
 
 		if where[i].Opt == In || where[i].Opt == NotIn {
@@ -704,6 +727,14 @@ func toAnyArr(val any) []any {
 		for _, value := range val.([]int64) {
 			values = append(values, value)
 		}
+	case []float32:
+		for _, value := range val.([]float32) {
+			values = append(values, value)
+		}
+	case []float64:
+		for _, value := range val.([]float64) {
+			values = append(values, value)
+		}
 	case []string:
 		for _, value := range val.([]string) {
 			values = append(values, value)
@@ -713,20 +744,18 @@ func toAnyArr(val any) []any {
 	return values
 }
 
-//将一个interface抽取成字符串
-func toStr(val any) string {
-	switch val.(type) {
-	case int:
-		return strconv.Itoa(val.(int))
-	case int64:
-		return strconv.FormatInt(val.(int64), 10)
-	case string:
-		return val.(string)
+func str2Int(str string) int {
+	num, err := strconv.Atoi(str)
+	if err != nil {
+		return 0
 	}
-	return ""
+	return num
 }
 
-func str2Int(str string) int {
-	num, _ := strconv.Atoi(str)
-	return num
+func str2Int64(str string) int64 {
+	dataNew, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return dataNew
 }

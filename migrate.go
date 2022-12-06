@@ -310,11 +310,11 @@ func (db *Executor) createTable(tableFromCode Table, columnsFromCode []Column, i
 
 	sqlStr := "CREATE TABLE `" + tableFromCode.TableName + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + getTableInfoFromCode(tableFromCode) + ";"
 
-	res, err := db.Exec(sqlStr)
+	_, err := db.Exec(sqlStr)
 	if err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println(res.RowsAffected())
+		fmt.Println("创建表:" + tableFromCode.TableName)
 	}
 }
 
@@ -336,7 +336,6 @@ func getTableInfoFromCode(tableFromCode Table) string {
 // 获得某列的结构
 func getColumnFromCode(fieldName string, fieldType string, fieldMap map[string]string) Column {
 	var column Column
-
 	//字段名
 	column.ColumnName = fieldName
 	//字段数据类型
@@ -381,7 +380,11 @@ func getTagMap(fieldTag string) map[string]string {
 func getColumnStr(column Column) string {
 	var strArr []string
 	strArr = append(strArr, column.ColumnName)
-	strArr = append(strArr, column.DataType+"("+strconv.Itoa(column.MaxLength)+")")
+	if column.MaxLength == 0 {
+		strArr = append(strArr, column.DataType)
+	} else {
+		strArr = append(strArr, column.DataType+"("+strconv.Itoa(column.MaxLength)+")")
+	}
 
 	if column.DefaultVal != "" {
 		strArr = append(strArr, "DEFAULT '"+column.DefaultVal+"'")
@@ -481,6 +484,8 @@ func getMaxLength(DataType string, fieldMap map[string]string) int {
 		if "float" == DataType {
 			MaxLength = 0
 		}
+
+		MaxLength = 0
 	}
 
 	return MaxLength
