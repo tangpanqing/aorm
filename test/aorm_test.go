@@ -85,6 +85,7 @@ func TestAll(t *testing.T) {
 
 	testTransaction(db)
 	testTruncate(db)
+	testHelper(db)
 }
 
 func testConnect() *sql.DB {
@@ -502,4 +503,20 @@ func testTruncate(db *sql.DB) {
 		panic(err)
 	}
 	fmt.Println(count)
+}
+
+func testHelper(db *sql.DB) {
+	fmt.Println("--- testHelper ---")
+
+	var list2 []ArticleVO
+	var where2 []aorm.WhereItem
+	where2 = append(where2, aorm.WhereItem{Field: "o.type", Opt: aorm.Eq, Val: 0})
+	where2 = append(where2, aorm.WhereItem{Field: "p.age", Opt: aorm.In, Val: []int{18, 20}})
+	aorm.Use(db).Debug(true).
+		Table("article o").
+		LeftJoin("person p", aorm.Ul("p.id=o.personId")).
+		Select("o.*").
+		Select(aorm.Ul("p.name as personName")).
+		WhereArr(where2).
+		GetMany(&list2)
 }
