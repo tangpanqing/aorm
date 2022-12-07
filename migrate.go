@@ -236,7 +236,6 @@ func (db *Executor) modifyTable(tableFromCode Table, columnsFromCode []Column, i
 			columnDb := columnsFromDb[j]
 			if columnCode.ColumnName == columnDb.ColumnName {
 				isFind = 1
-
 				if columnCode.DataType != columnDb.DataType || columnCode.MaxLength != columnDb.MaxLength || columnCode.ColumnComment != columnDb.ColumnComment || columnCode.Extra != columnDb.Extra || columnCode.DefaultVal != columnDb.DefaultVal {
 					sql := "ALTER TABLE " + tableFromCode.TableName + " MODIFY " + getColumnStr(columnCode)
 					_, err := db.Exec(sql)
@@ -307,7 +306,6 @@ func (db *Executor) createTable(tableFromCode Table, columnsFromCode []Column, i
 	}
 
 	sqlStr := "CREATE TABLE `" + tableFromCode.TableName + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + getTableInfoFromCode(tableFromCode) + ";"
-
 	_, err := db.Exec(sqlStr)
 	if err != nil {
 		fmt.Println(err)
@@ -379,7 +377,11 @@ func getColumnStr(column Column) string {
 	var strArr []string
 	strArr = append(strArr, column.ColumnName)
 	if column.MaxLength == 0 {
-		strArr = append(strArr, column.DataType)
+		if column.DataType == "varchar" {
+			strArr = append(strArr, column.DataType+"(255)")
+		} else {
+			strArr = append(strArr, column.DataType)
+		}
 	} else {
 		strArr = append(strArr, column.DataType+"("+strconv.Itoa(column.MaxLength)+")")
 	}
@@ -461,29 +463,10 @@ func getMaxLength(DataType string, fieldMap map[string]string) int {
 		num, _ := strconv.Atoi(maxLengthVal)
 		MaxLength = num
 	} else {
-		if "bigint" == DataType {
-			MaxLength = 20
-		}
-		if "int" == DataType {
-			MaxLength = 11
-		}
-		if "tinyint" == DataType {
-			MaxLength = 4
-		}
+		MaxLength = 0
 		if "varchar" == DataType {
 			MaxLength = 255
 		}
-		if "text" == DataType {
-			MaxLength = 0
-		}
-		if "datetime" == DataType {
-			MaxLength = 0
-		}
-		if "float" == DataType {
-			MaxLength = 0
-		}
-
-		MaxLength = 0
 	}
 
 	return MaxLength
