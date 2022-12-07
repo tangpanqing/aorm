@@ -25,7 +25,7 @@ type ArticleVO struct {
 }
 
 type Person struct {
-	Id         aorm.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
+	Id         aorm.Int    `aorm:"primary;auto_increment" json:"id"`
 	Name       aorm.String `aorm:"size:100;not null;comment:名字" json:"name"`
 	Sex        aorm.Bool   `aorm:"index;comment:性别" json:"sex"`
 	Age        aorm.Int    `aorm:"index;comment:年龄" json:"age"`
@@ -41,17 +41,15 @@ type PersonAge struct {
 }
 
 func TestAll(t *testing.T) {
-
 	db := testConnect()
 	defer db.Close()
 
 	testMigrate(db)
+
 	testShowCreateTable(db)
 
 	id := testInsert(db)
 
-	fmt.Println(id)
-	return
 	testGetOne(db, id)
 	testGetMany(db)
 	testUpdate(db, id)
@@ -119,8 +117,8 @@ func testMigrate(db *sql.DB) {
 func testShowCreateTable(db *sql.DB) {
 	fmt.Println("--- testShowCreateTable ---")
 
-	//showCreate := aorm.Use(db).ShowCreateTable("person")
-	//fmt.Println(showCreate)
+	showCreate := aorm.Use(db).ShowCreateTable("person")
+	fmt.Println(showCreate)
 }
 
 func testInsert(db *sql.DB) int64 {
@@ -213,7 +211,7 @@ func testWhere(db *sql.DB) {
 	where1 = append(where1, aorm.WhereItem{Field: "money", Opt: aorm.Eq, Val: 100.15})
 	where1 = append(where1, aorm.WhereItem{Field: "name", Opt: aorm.Like, Val: []string{"%", "li", "%"}})
 
-	aorm.Use(db).Debug(true).Table("person").Where(where1).GetMany(&listByWhere)
+	aorm.Use(db).Debug(true).Table("person").WhereArr(where1).GetMany(&listByWhere)
 	for i := 0; i < len(listByWhere); i++ {
 		fmt.Println(listByWhere[i])
 	}
@@ -387,11 +385,11 @@ func testValueFloat32(db *sql.DB, id int64) {
 func testValueFloat64(db *sql.DB, id int64) {
 	fmt.Println("--- testValueFloat64 ---")
 
-	money, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueFloat64("test")
+	test, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueFloat64("test")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(money)
+	fmt.Println(test)
 }
 
 func testCount(db *sql.DB) {
@@ -470,7 +468,7 @@ func testTransaction(db *sql.DB) {
 
 	tx, _ := db.Begin()
 
-	id, errInsert := aorm.Use(tx).Insert(&Person{
+	id, errInsert := aorm.Use(tx).Debug(true).Insert(&Person{
 		Name: aorm.StringFrom("Alice"),
 	})
 
@@ -480,7 +478,7 @@ func testTransaction(db *sql.DB) {
 		return
 	}
 
-	countUpdate, errUpdate := aorm.Use(tx).Where(&Person{
+	countUpdate, errUpdate := aorm.Use(tx).Debug(true).Where(&Person{
 		Id: aorm.IntFrom(id),
 	}).Update(&Person{
 		Name: aorm.StringFrom("Bob"),
@@ -499,7 +497,7 @@ func testTransaction(db *sql.DB) {
 func testTruncate(db *sql.DB) {
 	fmt.Println("--- testTruncate ---")
 
-	count, err := aorm.Use(db).Table("person").Truncate()
+	count, err := aorm.Use(db).Debug(true).Table("person").Truncate()
 	if err != nil {
 		panic(err)
 	}

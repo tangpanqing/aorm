@@ -163,7 +163,12 @@ func (db *Executor) getColumnsFromDb(dbName string, tableName string) []Column {
 	dataColumn, _ := db.Query(sqlColumn)
 
 	for j := 0; j < len(dataColumn); j++ {
+		dataType := dataColumn[j]["DATA_TYPE"].(string)
 		maxLength, _ := strconv.Atoi(fmt.Sprintf("%v", dataColumn[j]["CHARACTER_MAXIMUM_LENGTH"]))
+		if dataType == "text" && maxLength == 65535 {
+			maxLength = 0
+		}
+
 		defaultVal := ""
 		if dataColumn[j]["COLUMN_DEFAULT"] != nil {
 			defaultVal = dataColumn[j]["COLUMN_DEFAULT"].(string)
@@ -171,7 +176,7 @@ func (db *Executor) getColumnsFromDb(dbName string, tableName string) []Column {
 
 		columnsFromDb = append(columnsFromDb, Column{
 			ColumnName:    dataColumn[j]["COLUMN_NAME"].(string),
-			DataType:      dataColumn[j]["DATA_TYPE"].(string),
+			DataType:      dataType,
 			IsNullable:    dataColumn[j]["IS_NULLABLE"].(string),
 			MaxLength:     maxLength,
 			ColumnType:    dataColumn[j]["COLUMN_TYPE"].(string),
@@ -203,13 +208,6 @@ func (db *Executor) getIndexsFromDb(tableName string) []Index {
 
 // 修改表
 func (db *Executor) modifyTable(tableFromCode Table, columnsFromCode []Column, indexsFromCode []Index, tableFromDb Table, columnsFromDb []Column, indexsFromDb []Index) {
-	//fmt.Println("正在修改表" + tableFromCode.TableName)
-	//fmt.Println(columnsFromCode)
-	//fmt.Println(columnsFromDb)
-
-	//fmt.Println(indexsFromCode)
-	//fmt.Println(indexsFromDb)
-
 	if tableFromCode.Engine != tableFromDb.Engine {
 		sql := "ALTER TABLE " + tableFromCode.TableName + " Engine " + tableFromCode.Engine
 		_, err := db.Exec(sql)
@@ -239,7 +237,7 @@ func (db *Executor) modifyTable(tableFromCode Table, columnsFromCode []Column, i
 			if columnCode.ColumnName == columnDb.ColumnName {
 				isFind = 1
 
-				if columnCode.ColumnType != columnDb.ColumnType || columnCode.ColumnComment != columnDb.ColumnComment || columnCode.Extra != columnDb.Extra || columnCode.DefaultVal != columnDb.DefaultVal {
+				if columnCode.DataType != columnDb.DataType || columnCode.MaxLength != columnDb.MaxLength || columnCode.ColumnComment != columnDb.ColumnComment || columnCode.Extra != columnDb.Extra || columnCode.DefaultVal != columnDb.DefaultVal {
 					sql := "ALTER TABLE " + tableFromCode.TableName + " MODIFY " + getColumnStr(columnCode)
 					_, err := db.Exec(sql)
 					if err != nil {
@@ -494,11 +492,16 @@ func getMaxLength(DataType string, fieldMap map[string]string) int {
 func getNullAble(fieldMap map[string]string) string {
 	var IsNullable string
 
-	_, ok := fieldMap["not null"]
-	if ok {
+	_, primaryOk := fieldMap["primary"]
+	if primaryOk {
 		IsNullable = "NO"
 	} else {
-		IsNullable = "YES"
+		_, ok := fieldMap["not null"]
+		if ok {
+			IsNullable = "NO"
+		} else {
+			IsNullable = "YES"
+		}
 	}
 
 	return IsNullable
