@@ -311,6 +311,50 @@ func (db *Executor) ValueFloat64(fieldName string) (float64, error) {
 	return obj[0][fieldName].(float64), nil
 }
 
+// Pluck 获取某一列的值 []string
+func (db *Executor) Pluck(fieldName string) ([]string, error) {
+	obj := db.Select(fieldName).GetMapArr()
+
+	var dataList []string
+	for i := 0; i < len(obj); i++ {
+		dataList = append(dataList, obj[i][fieldName].(string))
+	}
+	return dataList, nil
+}
+
+// PluckInt64 获取某一列的值 []Int64
+func (db *Executor) PluckInt64(fieldName string) ([]int64, error) {
+	obj := db.Select(fieldName).GetMapArr()
+
+	var dataList []int64
+	for i := 0; i < len(obj); i++ {
+		dataList = append(dataList, str2Int64(obj[i][fieldName].(string)))
+	}
+	return dataList, nil
+}
+
+// PluckFloat32 获取某一列的值 []Float32
+func (db *Executor) PluckFloat32(fieldName string) ([]float32, error) {
+	obj := db.Select(fieldName).GetMapArr()
+
+	var dataList []float32
+	for i := 0; i < len(obj); i++ {
+		dataList = append(dataList, obj[i][fieldName].(float32))
+	}
+	return dataList, nil
+}
+
+// PluckFloat64 获取某一列的值 []Float64
+func (db *Executor) PluckFloat64(fieldName string) ([]float64, error) {
+	obj := db.Select(fieldName).GetMapArr()
+
+	var dataList []float64
+	for i := 0; i < len(obj); i++ {
+		dataList = append(dataList, obj[i][fieldName].(float64))
+	}
+	return dataList, nil
+}
+
 // Increment 某字段自增
 func (db *Executor) Increment(fieldName string, step int) (int64, error) {
 	var paramList []any
