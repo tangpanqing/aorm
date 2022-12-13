@@ -84,7 +84,11 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 func (db *Executor) GetMany(values interface{}) error {
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
-	res := db.GetMapArr()
+	res, err := db.GetMapArr()
+	if err != nil {
+		return err
+	}
+
 	for i := 0; i < len(res); i++ {
 		dest := reflect.New(destType).Elem()
 		for k, v := range res[i] {
@@ -105,7 +109,11 @@ func (db *Executor) GetMany(values interface{}) error {
 func (db *Executor) GetOne(obj interface{}) error {
 
 	dest := reflect.ValueOf(obj).Elem()
-	res := db.Limit(0, 1).GetMapArr()
+	res, err := db.Limit(0, 1).GetMapArr()
+	if err != nil {
+		return err
+	}
+
 	if len(res) == 0 {
 		return errors.New("record not found")
 	}
@@ -122,7 +130,7 @@ func (db *Executor) GetOne(obj interface{}) error {
 	return nil
 }
 
-func (db *Executor) GetMapArr() []map[string]interface{} {
+func (db *Executor) GetMapArr() ([]map[string]interface{}, error) {
 	var paramList []any
 	fieldStr := handleField(db.SelectList)
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
@@ -134,9 +142,12 @@ func (db *Executor) GetMapArr() []map[string]interface{} {
 	lockStr := handleLockForUpdate(db.IsLockForUpdate)
 
 	sqlStr := "SELECT " + fieldStr + " FROM " + db.TableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
-	res, _ := db.Query(sqlStr, paramList...)
+	res, err := db.Query(sqlStr, paramList...)
+	if err != nil {
+		return make([]map[string]interface{}, 0), err
+	}
 
-	return res
+	return res, nil
 }
 
 func transToNullType(v interface{}, filedType string) reflect.Value {
@@ -275,84 +286,62 @@ func (db *Executor) Min(fieldName string) (float64, error) {
 	return obj[0].C.Float64, nil
 }
 
-// Value 字段值,注意返回值类型为string
-func (db *Executor) Value(fieldName string) (string, error) {
-	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
+// Value 字段值
+func (db *Executor) Value(fieldName string, dest interface{}) error {
+	obj, err := db.Select(fieldName).Limit(0, 1).GetMapArr()
+	if err != nil {
+		return err
+	}
+
 	if len(obj) == 0 {
-		return "", errors.New("找不到值")
+		return errors.New("record not found")
 	}
-	return obj[0][fieldName].(string), nil
+
+	typeElem := reflect.TypeOf(dest).Elem().String()
+	if "string" == typeElem {
+		reflect.ValueOf(dest).Elem().SetString(obj[0][fieldName].(string))
+	} else if "float64" == typeElem {
+		reflect.ValueOf(dest).Elem().SetFloat(obj[0][fieldName].(float64))
+	} else if "float32" == typeElem {
+		reflect.ValueOf(dest).Elem().SetFloat(float64(obj[0][fieldName].(float32)))
+	} else if "int64" == typeElem {
+		reflect.ValueOf(dest).Elem().SetInt(str2Int64(obj[0][fieldName].(string)))
+	} else {
+		return errors.New("unsupported type ")
+	}
+
+	return nil
 }
 
-// ValueInt64 字段值,注意返回值类型为int64
-func (db *Executor) ValueInt64(fieldName string) (int64, error) {
-	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
-	if len(obj) == 0 {
-		return 0, errors.New("找不到值")
+// Pluck 获取某一列的值
+func (db *Executor) Pluck(fieldName string, values interface{}) error {
+	destSlice := reflect.Indirect(reflect.ValueOf(values))
+	destType := destSlice.Type().Elem()
+
+	obj, err := db.Select(fieldName).GetMapArr()
+	if err != nil {
+		return err
 	}
-	return str2Int64(obj[0][fieldName].(string)), nil
-}
 
-// ValueFloat32 字段值,注意返回值类型为float32
-func (db *Executor) ValueFloat32(fieldName string) (float32, error) {
-	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
-	if len(obj) == 0 {
-		return 0, errors.New("找不到值")
-	}
-	return obj[0][fieldName].(float32), nil
-}
-
-// ValueFloat64 字段值,注意返回值类型为float32
-func (db *Executor) ValueFloat64(fieldName string) (float64, error) {
-	obj := db.Select(fieldName).Limit(0, 1).GetMapArr()
-	if len(obj) == 0 {
-		return 0, errors.New("找不到值")
-	}
-	return obj[0][fieldName].(float64), nil
-}
-
-// Pluck 获取某一列的值 []string
-func (db *Executor) Pluck(fieldName string) ([]string, error) {
-	obj := db.Select(fieldName).GetMapArr()
-
-	var dataList []string
 	for i := 0; i < len(obj); i++ {
-		dataList = append(dataList, obj[i][fieldName].(string))
+		dest := reflect.New(destType).Elem()
+
+		if "string" == destType.String() {
+			dest.SetString(obj[i][fieldName].(string))
+		} else if "float64" == destType.String() {
+			dest.SetFloat(obj[i][fieldName].(float64))
+		} else if "float32" == destType.String() {
+			dest.SetFloat(float64(obj[i][fieldName].(float32)))
+		} else if "int64" == destType.String() {
+			dest.SetInt(str2Int64(obj[i][fieldName].(string)))
+		} else {
+			return errors.New("unsupported type")
+		}
+
+		destSlice.Set(reflect.Append(destSlice, dest))
 	}
-	return dataList, nil
-}
 
-// PluckInt64 获取某一列的值 []Int64
-func (db *Executor) PluckInt64(fieldName string) ([]int64, error) {
-	obj := db.Select(fieldName).GetMapArr()
-
-	var dataList []int64
-	for i := 0; i < len(obj); i++ {
-		dataList = append(dataList, str2Int64(obj[i][fieldName].(string)))
-	}
-	return dataList, nil
-}
-
-// PluckFloat32 获取某一列的值 []Float32
-func (db *Executor) PluckFloat32(fieldName string) ([]float32, error) {
-	obj := db.Select(fieldName).GetMapArr()
-
-	var dataList []float32
-	for i := 0; i < len(obj); i++ {
-		dataList = append(dataList, obj[i][fieldName].(float32))
-	}
-	return dataList, nil
-}
-
-// PluckFloat64 获取某一列的值 []Float64
-func (db *Executor) PluckFloat64(fieldName string) ([]float64, error) {
-	obj := db.Select(fieldName).GetMapArr()
-
-	var dataList []float64
-	for i := 0; i < len(obj); i++ {
-		dataList = append(dataList, obj[i][fieldName].(float64))
-	}
-	return dataList, nil
+	return nil
 }
 
 // Increment 某字段自增

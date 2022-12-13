@@ -70,14 +70,8 @@ func TestAll(t *testing.T) {
 	testDecrement(db, id2)
 
 	testValue(db, id2)
-	testValueInt64(db, id2)
-	testValueFloat32(db, id2)
-	testValueFloat64(db, id2)
 
 	testPluck(db)
-	testPluckInt64(db)
-	testPluckFloat32(db)
-	testPluckFloat64(db)
 
 	testCount(db)
 	testSum(db)
@@ -371,39 +365,31 @@ func testDecrement(db *sql.DB, id int64) {
 func testValue(db *sql.DB, id int64) {
 	fmt.Println("--- testValue ---")
 
-	name, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("name")
-	if err != nil {
-		panic(err)
+	var name string
+	errName := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("name", &name)
+	if errName != nil {
+		panic(errName)
 	}
 	fmt.Println(name)
-}
 
-func testValueInt64(db *sql.DB, id int64) {
-	fmt.Println("--- testValueInt64 ---")
-
-	age, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueInt64("age")
-	if err != nil {
-		panic(err)
+	var age int64
+	errAge := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("age", &age)
+	if errAge != nil {
+		panic(errAge)
 	}
 	fmt.Println(age)
-}
 
-func testValueFloat32(db *sql.DB, id int64) {
-	fmt.Println("--- testValueFloat32 ---")
-
-	money, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueFloat32("money")
-	if err != nil {
-		panic(err)
+	var money float32
+	errMoney := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("money", &money)
+	if errMoney != nil {
+		panic(errMoney)
 	}
 	fmt.Println(money)
-}
 
-func testValueFloat64(db *sql.DB, id int64) {
-	fmt.Println("--- testValueFloat64 ---")
-
-	test, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).ValueFloat64("test")
-	if err != nil {
-		panic(err)
+	var test float64
+	errTest := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("test", &test)
+	if errTest != nil {
+		panic(errTest)
 	}
 	fmt.Println(test)
 }
@@ -411,45 +397,37 @@ func testValueFloat64(db *sql.DB, id int64) {
 func testPluck(db *sql.DB) {
 	fmt.Println("--- testPluck ---")
 
-	nameList, err := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 5).Pluck("name")
-	if err != nil {
-		panic(err)
+	var nameList []string
+	errNameList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("name", &nameList)
+	if errNameList != nil {
+		panic(errNameList)
 	}
 	for i := 0; i < len(nameList); i++ {
 		fmt.Println(nameList[i])
 	}
-}
 
-func testPluckInt64(db *sql.DB) {
-	fmt.Println("--- testPluckInt64 ---")
-
-	ageList, err := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 5).PluckInt64("age")
-	if err != nil {
-		panic(err)
+	var ageList []int64
+	errAgeList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("age", &ageList)
+	if errAgeList != nil {
+		panic(errAgeList)
 	}
 	for i := 0; i < len(ageList); i++ {
 		fmt.Println(ageList[i])
 	}
-}
 
-func testPluckFloat32(db *sql.DB) {
-	fmt.Println("--- testPluckFloat32 ---")
-
-	moneyList, err := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 5).PluckFloat32("money")
-	if err != nil {
-		panic(err)
+	var moneyList []float32
+	errMoneyList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("money", &moneyList)
+	if errMoneyList != nil {
+		panic(errMoneyList)
 	}
 	for i := 0; i < len(moneyList); i++ {
 		fmt.Println(moneyList[i])
 	}
-}
 
-func testPluckFloat64(db *sql.DB) {
-	fmt.Println("--- testPluckFloat64 ---")
-
-	testList, err := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 5).PluckFloat64("test")
-	if err != nil {
-		panic(err)
+	var testList []float64
+	errTestList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("test", &testList)
+	if errTestList != nil {
+		panic(errTestList)
 	}
 	for i := 0; i < len(testList); i++ {
 		fmt.Println(testList[i])
