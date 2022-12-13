@@ -388,11 +388,13 @@ func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]inte
 	if err1 != nil {
 		return listData, err1
 	}
+	defer smt.Close()
 
 	rows, err2 := smt.Query(args...)
 	if err2 != nil {
 		return listData, err2
 	}
+	defer rows.Close()
 
 	fieldsTypes, _ := rows.ColumnTypes()
 	fields, _ := rows.Columns()
@@ -444,6 +446,7 @@ func (db *Executor) Exec(sqlStr string, args ...interface{}) (sql.Result, error)
 	if err1 != nil {
 		return nil, err1
 	}
+	defer smt.Close()
 
 	res, err2 := smt.Exec(args...)
 	if err2 != nil {
