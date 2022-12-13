@@ -96,11 +96,21 @@ func TestAll(t *testing.T) {
 func testConnect() *sql.DB {
 	fmt.Println("--- testConnect ---")
 
-	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/aorm_test?charset=utf8mb4&parseTime=True&loc=Local")
+	//replace this database param
+	username := "root"
+	password := "root"
+	hostname := "localhost"
+	port := "3306"
+	dbname := "database_name"
+
+	//connect
+	db, err := sql.Open("mysql", username+":"+password+"@tcp("+hostname+":"+port+")/"+dbname+"?charset=utf8mb4&parseTime=True&loc=Local")
 	if err != nil {
 		panic(err)
 	}
+	//defer db.Close()
 
+	//ping test
 	err1 := db.Ping()
 	if err1 != nil {
 		panic(err1)
