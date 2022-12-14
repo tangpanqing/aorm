@@ -52,6 +52,7 @@ func TestAll(t *testing.T) {
 
 	testGetOne(db, id)
 	testGetMany(db)
+	testGetManyNew(db)
 	testUpdate(db, id)
 	testDelete(db, id)
 
@@ -171,7 +172,20 @@ func testGetMany(db *sql.DB) {
 		fmt.Println(errSelect)
 	}
 	for i := 0; i < len(list); i++ {
-		fmt.Println(list[i])
+		//fmt.Println(list[i])
+	}
+}
+
+func testGetManyNew(db *sql.DB) {
+	fmt.Println("--- testGetManyNew ---")
+
+	var list []Person
+	errSelect := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).GetManyNew(&list)
+	if errSelect != nil {
+		fmt.Println(errSelect)
+	}
+	for i := 0; i < len(list); i++ {
+		//fmt.Println(list[i])
 	}
 }
 
