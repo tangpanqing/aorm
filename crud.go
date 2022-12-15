@@ -2,12 +2,9 @@ package aorm
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
-	"time"
 )
 
 const Desc = "DESC"
@@ -80,36 +77,68 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 	return lastId, nil
 }
 
-// GetMany 查询记录
+// GetMany 查询记录(新)
 func (db *Executor) GetMany(values interface{}) error {
+	rows, err2 := db.GetRows()
+	if err2 != nil {
+		fmt.Println(err2)
+	}
+	defer rows.Close()
+
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
-	res, err := db.GetMapArr()
-	if err != nil {
-		return err
-	}
+	destValue := reflect.New(destType).Elem()
 
-	for i := 0; i < len(res); i++ {
-		dest := reflect.New(destType).Elem()
-		for k, v := range res[i] {
-			fieldName := CamelString(k)
-			if dest.FieldByName(fieldName).CanSet() {
-				filedType := dest.FieldByName(fieldName).Type().String()
-				x := transToNullType(v, filedType)
-				dest.FieldByName(fieldName).Set(x)
-			}
+	//从数据库中读出来的字段名字
+	columnNameList, _ := rows.Columns()
+
+	//从结构体反射出来的属性名
+	fieldNameMap := getFieldNameMap(destValue, destType)
+
+	for rows.Next() {
+		scans := getScans(columnNameList, fieldNameMap, destValue)
+
+		err := rows.Scan(scans...)
+		if err != nil {
+			return err
 		}
-		destSlice.Set(reflect.Append(destSlice, dest))
+
+		destSlice.Set(reflect.Append(destSlice, destValue))
 	}
 
 	return nil
 }
 
-// GetManyNew 查询记录(新)
-func (db *Executor) GetManyNew(values interface{}) error {
-	destSlice := reflect.Indirect(reflect.ValueOf(values))
-	destType := destSlice.Type().Elem()
+// GetOne 查询某一条记录
+func (db *Executor) GetOne(obj interface{}) error {
+	rows, err2 := db.Limit(0, 1).GetRows()
+	if err2 != nil {
+		fmt.Println(err2)
+	}
+	defer rows.Close()
 
+	destType := reflect.TypeOf(obj).Elem()
+	destValue := reflect.ValueOf(obj).Elem()
+
+	//从数据库中读出来的字段名字
+	columnNameList, _ := rows.Columns()
+
+	//从结构体反射出来的属性名
+	fieldNameMap := getFieldNameMap(destValue, destType)
+
+	for rows.Next() {
+		scans := getScans(columnNameList, fieldNameMap, destValue)
+		err := rows.Scan(scans...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// GetRows 查询行
+func (db *Executor) GetRows() (*sql.Rows, error) {
 	var paramList []any
 	fieldStr := handleField(db.SelectList)
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
@@ -133,156 +162,7 @@ func (db *Executor) GetManyNew(values interface{}) error {
 	}
 	defer smt.Close()
 
-	rows, err2 := smt.Query(paramList...)
-	if err2 != nil {
-		fmt.Println(err2)
-	}
-	defer rows.Close()
-
-	fieldsTypes, _ := rows.ColumnTypes()
-	fields, _ := rows.Columns()
-
-	for rows.Next() {
-		data := make(map[string]interface{})
-
-		scans := make([]interface{}, len(fields))
-		for i := range scans {
-			scans[i] = &scans[i]
-		}
-		err := rows.Scan(scans...)
-		if err != nil {
-			return err
-		}
-
-		for i, v := range scans {
-			if v == nil {
-				data[fields[i]] = v
-			} else {
-				if fieldsTypes[i].DatabaseTypeName() == "VARCHAR" || fieldsTypes[i].DatabaseTypeName() == "TEXT" || fieldsTypes[i].DatabaseTypeName() == "CHAR" || fieldsTypes[i].DatabaseTypeName() == "LONGTEXT" {
-					data[fields[i]] = fmt.Sprintf("%s", v)
-				} else if fieldsTypes[i].DatabaseTypeName() == "INT" || fieldsTypes[i].DatabaseTypeName() == "BIGINT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED INT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED BIGINT" {
-					data[fields[i]] = fmt.Sprintf("%v", v)
-				} else if fieldsTypes[i].DatabaseTypeName() == "DECIMAL" {
-					data[fields[i]] = string(v.([]uint8))
-				} else {
-					data[fields[i]] = v
-				}
-			}
-		}
-
-		dest := reflect.New(destType).Elem()
-		for k, v := range data {
-			fieldName := CamelString(k)
-			if dest.FieldByName(fieldName).CanSet() {
-				filedType := dest.FieldByName(fieldName).Type().String()
-				x := transToNullType(v, filedType)
-				dest.FieldByName(fieldName).Set(x)
-			}
-		}
-		destSlice.Set(reflect.Append(destSlice, dest))
-	}
-
-	return nil
-}
-
-// GetOne 查询某一条记录
-func (db *Executor) GetOne(obj interface{}) error {
-
-	dest := reflect.ValueOf(obj).Elem()
-	res, err := db.Limit(0, 1).GetMapArr()
-	if err != nil {
-		return err
-	}
-
-	if len(res) == 0 {
-		return errors.New("record not found")
-	}
-
-	for k, v := range res[0] {
-		fieldName := CamelString(k)
-		if dest.FieldByName(fieldName).CanSet() {
-			filedType := dest.FieldByName(fieldName).Type().String()
-			x := transToNullType(v, filedType)
-			dest.FieldByName(fieldName).Set(x)
-		}
-	}
-
-	return nil
-}
-
-func (db *Executor) GetMapArr() ([]map[string]interface{}, error) {
-	var paramList []any
-	fieldStr := handleField(db.SelectList)
-	whereStr, paramList := handleWhere(db.WhereList, paramList)
-	joinStr := handleJoin(db.JoinList)
-	groupStr := handleGroup(db.GroupList)
-	havingStr, paramList := handleHaving(db.HavingList, paramList)
-	orderStr := handleOrder(db.OrderList)
-	limitStr, paramList := handleLimit(db.Offset, db.PageSize, paramList)
-	lockStr := handleLockForUpdate(db.IsLockForUpdate)
-
-	sqlStr := "SELECT " + fieldStr + " FROM " + db.TableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
-	res, err := db.Query(sqlStr, paramList...)
-	if err != nil {
-		return make([]map[string]interface{}, 0), err
-	}
-
-	return res, nil
-}
-
-func transToNullType(v interface{}, filedType string) reflect.Value {
-	x := reflect.ValueOf("")
-	if "aorm.String" == filedType {
-		if nil == v {
-			x = reflect.ValueOf(String{})
-		} else {
-			x = reflect.ValueOf(StringFrom(fmt.Sprintf("%v", v)))
-		}
-	} else if "aorm.Int" == filedType {
-		if nil == v {
-			x = reflect.ValueOf(Int{})
-		} else {
-			int64Val, _ := strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
-			x = reflect.ValueOf(IntFrom(int64Val))
-		}
-	} else if "aorm.Time" == filedType {
-		if nil == v {
-			x = reflect.ValueOf(Time{})
-		} else {
-			timeStr := fmt.Sprintf("%v", v)
-			timeArr := strings.Split(timeStr, " ")
-			timeArr1 := strings.Split(timeArr[0], "-")
-			timeArr2 := strings.Split(timeArr[1], ":")
-
-			a := time.Date(
-				str2Int(timeArr1[0]), time.Month(str2Int(timeArr1[1])), str2Int(timeArr1[2]),
-				str2Int(timeArr2[0]),
-				str2Int(timeArr2[1]),
-				str2Int(timeArr2[2]),
-				0,
-				time.Local,
-			)
-			x = reflect.ValueOf(TimeFrom(a))
-		}
-	} else if "aorm.Bool" == filedType {
-		if nil == v {
-			x = reflect.ValueOf(Bool{})
-		} else {
-			boolVal, _ := strconv.ParseBool(fmt.Sprintf("%v", v))
-			x = reflect.ValueOf(BoolFrom(boolVal))
-		}
-	} else if "aorm.Float" == filedType {
-		if nil == v {
-			x = reflect.ValueOf(Float{})
-		} else {
-			float64Val, _ := strconv.ParseFloat(fmt.Sprintf("%v", v), 64)
-			x = reflect.ValueOf(FloatFrom(float64Val))
-		}
-	} else {
-		panic("不受支持的类型转换" + filedType)
-	}
-
-	return x
+	return smt.Query(paramList...)
 }
 
 // Update 更新记录
@@ -368,26 +248,32 @@ func (db *Executor) Min(fieldName string) (float64, error) {
 
 // Value 字段值
 func (db *Executor) Value(fieldName string, dest interface{}) error {
-	obj, err := db.Select(fieldName).Limit(0, 1).GetMapArr()
-	if err != nil {
-		return err
+	rows, err2 := db.Select(fieldName).Limit(0, 1).GetRows()
+	if err2 != nil {
+		fmt.Println(err2)
 	}
+	defer rows.Close()
 
-	if len(obj) == 0 {
-		return errors.New("record not found")
-	}
+	destValue := reflect.ValueOf(dest).Elem()
 
-	typeElem := reflect.TypeOf(dest).Elem().String()
-	if "string" == typeElem {
-		reflect.ValueOf(dest).Elem().SetString(obj[0][fieldName].(string))
-	} else if "float64" == typeElem {
-		reflect.ValueOf(dest).Elem().SetFloat(obj[0][fieldName].(float64))
-	} else if "float32" == typeElem {
-		reflect.ValueOf(dest).Elem().SetFloat(float64(obj[0][fieldName].(float32)))
-	} else if "int64" == typeElem {
-		reflect.ValueOf(dest).Elem().SetInt(str2Int64(obj[0][fieldName].(string)))
-	} else {
-		return errors.New("unsupported type ")
+	//从数据库中读出来的字段名字
+	columnNameList, _ := rows.Columns()
+
+	for rows.Next() {
+		var scans []interface{}
+		for _, columnName := range columnNameList {
+			if fieldName == columnName {
+				scans = append(scans, destValue.Addr().Interface())
+			} else {
+				var emptyVal interface{}
+				scans = append(scans, &emptyVal)
+			}
+		}
+
+		err := rows.Scan(scans...)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -395,30 +281,36 @@ func (db *Executor) Value(fieldName string, dest interface{}) error {
 
 // Pluck 获取某一列的值
 func (db *Executor) Pluck(fieldName string, values interface{}) error {
+	rows, err2 := db.Select(fieldName).GetRows()
+	if err2 != nil {
+		fmt.Println(err2)
+	}
+	defer rows.Close()
+
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
+	destValue := reflect.New(destType).Elem()
 
-	obj, err := db.Select(fieldName).GetMapArr()
-	if err != nil {
-		return err
-	}
+	//从数据库中读出来的字段名字
+	columnNameList, _ := rows.Columns()
 
-	for i := 0; i < len(obj); i++ {
-		dest := reflect.New(destType).Elem()
-
-		if "string" == destType.String() {
-			dest.SetString(obj[i][fieldName].(string))
-		} else if "float64" == destType.String() {
-			dest.SetFloat(obj[i][fieldName].(float64))
-		} else if "float32" == destType.String() {
-			dest.SetFloat(float64(obj[i][fieldName].(float32)))
-		} else if "int64" == destType.String() {
-			dest.SetInt(str2Int64(obj[i][fieldName].(string)))
-		} else {
-			return errors.New("unsupported type")
+	for rows.Next() {
+		var scans []interface{}
+		for _, columnName := range columnNameList {
+			if fieldName == columnName {
+				scans = append(scans, destValue.Addr().Interface())
+			} else {
+				var emptyVal interface{}
+				scans = append(scans, &emptyVal)
+			}
 		}
 
-		destSlice.Set(reflect.Append(destSlice, dest))
+		err := rows.Scan(scans...)
+		if err != nil {
+			return err
+		}
+
+		destSlice.Set(reflect.Append(destSlice, destValue))
 	}
 
 	return nil
@@ -855,22 +747,6 @@ func toAnyArr(val any) []any {
 	return values
 }
 
-func str2Int(str string) int {
-	num, err := strconv.Atoi(str)
-	if err != nil {
-		return 0
-	}
-	return num
-}
-
-func str2Int64(str string) int64 {
-	dataNew, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return dataNew
-}
-
 //反射表名,优先从方法获取,没有方法则从名字获取
 func reflectTableName(typeOf reflect.Type, valueOf reflect.Value) string {
 	method, isSet := typeOf.MethodByName("TableName")
@@ -883,4 +759,29 @@ func reflectTableName(typeOf reflect.Type, valueOf reflect.Value) string {
 		arr := strings.Split(typeOf.String(), ".")
 		return UnderLine(arr[len(arr)-1])
 	}
+}
+
+func getFieldNameMap(destValue reflect.Value, destType reflect.Type) map[string]int {
+	fieldNameMap := make(map[string]int)
+	for i := 0; i < destValue.NumField(); i++ {
+		fieldNameMap[destType.Field(i).Name] = i
+	}
+
+	return fieldNameMap
+}
+
+func getScans(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
+	var scans []interface{}
+	for _, columnName := range columnNameList {
+		fieldName := CamelString(columnName)
+		index, ok := fieldNameMap[fieldName]
+		if ok {
+			scans = append(scans, destValue.Field(index).Addr().Interface())
+		} else {
+			var emptyVal interface{}
+			scans = append(scans, &emptyVal)
+		}
+	}
+
+	return scans
 }
