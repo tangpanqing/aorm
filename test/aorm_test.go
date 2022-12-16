@@ -59,6 +59,7 @@ func TestAll(t *testing.T) {
 	id2 := testInsert(db)
 	testTable(db)
 	testSelect(db)
+	return
 	testWhere(db)
 	testJoin(db)
 	testGroupBy(db)
@@ -240,6 +241,9 @@ func testSelect(db *sql.DB) {
 
 	var listByFiled []Person
 	aorm.Use(db).Debug(true).Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
+
+	sub := aorm.Use(db).Table("test_table").SelectCount("test_name", "test_name_count")
+	aorm.Use(db).Debug(true).SelectExp(sub, "test_name_count_new").Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
 }
 
 func testWhere(db *sql.DB) {

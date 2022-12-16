@@ -17,6 +17,7 @@ type Executor struct {
 	LinkCommon      LinkCommon
 	TableName       string
 	SelectList      []string
+	SelectExpList   []ExpItem
 	GroupList       []string
 	WhereList       []WhereItem
 	JoinList        []string
@@ -27,6 +28,11 @@ type Executor struct {
 	IsDebug         bool
 	IsLockForUpdate bool
 	OpinionList     []OpinionItem
+}
+
+type ExpItem struct {
+	Executor  *Executor
+	FieldName string
 }
 
 // Use 使用数据库连接，或者事务
