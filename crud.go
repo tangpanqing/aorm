@@ -2,6 +2,7 @@ package aorm
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -75,6 +76,59 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 	}
 
 	return lastId, nil
+}
+
+// InsertBatch 批量增加记录
+func (db *Executor) InsertBatch(values interface{}) (int64, error) {
+
+	var keys []string
+	var paramList []any
+	var place []string
+
+	valueOf := reflect.ValueOf(values).Elem()
+	if valueOf.Len() == 0 {
+		return 0, errors.New("the data list for insert batch not found")
+	}
+	typeOf := reflect.TypeOf(values).Elem().Elem()
+
+	//如果没有设置表名
+	if db.TableName == "" {
+		db.TableName = reflectTableName(typeOf, valueOf.Index(0))
+	}
+
+	for j := 0; j < valueOf.Len(); j++ {
+		var placeItem []string
+
+		for i := 0; i < valueOf.Index(j).NumField(); i++ {
+			isNotNull := valueOf.Index(j).Field(i).Field(0).Field(1).Bool()
+			if isNotNull {
+				if j == 0 {
+					key := UnderLine(typeOf.Field(i).Name)
+					keys = append(keys, key)
+				}
+
+				val := valueOf.Index(j).Field(i).Field(0).Field(0).Interface()
+				paramList = append(paramList, val)
+				placeItem = append(placeItem, "?")
+			}
+		}
+
+		place = append(place, "("+strings.Join(placeItem, ",")+")")
+	}
+
+	sqlStr := "INSERT INTO " + db.TableName + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
+
+	res, err := db.Exec(sqlStr, paramList...)
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // GetMany 查询记录(新)

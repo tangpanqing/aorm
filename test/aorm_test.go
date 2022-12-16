@@ -49,6 +49,8 @@ func TestAll(t *testing.T) {
 	testShowCreateTable(db)
 
 	id := testInsert(db)
+	testInsertBatch(db)
+
 	testGetOne(db, id)
 	testGetMany(db)
 	testUpdate(db, id)
@@ -148,6 +150,39 @@ func testInsert(db *sql.DB) int64 {
 	fmt.Println(id)
 
 	return id
+}
+
+func testInsertBatch(db *sql.DB) int64 {
+	fmt.Println("--- testInsertBatch ---")
+
+	var batch []Person
+	batch = append(batch, Person{
+		Name:       aorm.StringFrom("Alice"),
+		Sex:        aorm.BoolFrom(false),
+		Age:        aorm.IntFrom(18),
+		Type:       aorm.IntFrom(0),
+		CreateTime: aorm.TimeFrom(time.Now()),
+		Money:      aorm.FloatFrom(100.15987654321),
+		Test:       aorm.FloatFrom(200.15987654321987654321),
+	})
+
+	batch = append(batch, Person{
+		Name:       aorm.StringFrom("Bob"),
+		Sex:        aorm.BoolFrom(true),
+		Age:        aorm.IntFrom(18),
+		Type:       aorm.IntFrom(0),
+		CreateTime: aorm.TimeFrom(time.Now()),
+		Money:      aorm.FloatFrom(100.15987654321),
+		Test:       aorm.FloatFrom(200.15987654321987654321),
+	})
+
+	count, errInsertBatch := aorm.Use(db).Debug(true).InsertBatch(&batch)
+	if errInsertBatch != nil {
+		fmt.Println(errInsertBatch)
+	}
+	fmt.Println(count)
+
+	return count
 }
 
 func testGetOne(db *sql.DB, id int64) {
