@@ -519,6 +519,25 @@ func testTransaction(db *sql.DB) {
 		return
 	}
 
+	_, errCount := aorm.Use(tx).Debug(true).Where(&Person{
+		Id: aorm.IntFrom(id),
+	}).Count("*")
+	if errCount != nil {
+		fmt.Println(errCount)
+		tx.Rollback()
+		return
+	}
+
+	var person Person
+	errPerson := aorm.Use(tx).Debug(true).Where(&Person{
+		Id: aorm.IntFrom(id),
+	}).GetOne(&person)
+	if errPerson != nil {
+		fmt.Println(errPerson)
+		tx.Rollback()
+		return
+	}
+
 	countUpdate, errUpdate := aorm.Use(tx).Debug(true).Where(&Person{
 		Id: aorm.IntFrom(id),
 	}).Update(&Person{

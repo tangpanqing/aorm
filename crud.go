@@ -79,9 +79,17 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 
 // GetMany 查询记录(新)
 func (db *Executor) GetMany(values interface{}) error {
-	rows, err2 := db.GetRows()
-	if err2 != nil {
-		fmt.Println(err2)
+	sqlStr, paramList := db.getSqlAndParams()
+
+	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	if errSmt != nil {
+		return errSmt
+	}
+	defer smt.Close()
+
+	rows, errRows := smt.Query(paramList...)
+	if errRows != nil {
+		return errRows
 	}
 	defer rows.Close()
 
@@ -90,7 +98,10 @@ func (db *Executor) GetMany(values interface{}) error {
 	destValue := reflect.New(destType).Elem()
 
 	//从数据库中读出来的字段名字
-	columnNameList, _ := rows.Columns()
+	columnNameList, errColumns := rows.Columns()
+	if errColumns != nil {
+		return errColumns
+	}
 
 	//从结构体反射出来的属性名
 	fieldNameMap := getFieldNameMap(destValue, destType)
@@ -98,9 +109,9 @@ func (db *Executor) GetMany(values interface{}) error {
 	for rows.Next() {
 		scans := getScans(columnNameList, fieldNameMap, destValue)
 
-		err := rows.Scan(scans...)
-		if err != nil {
-			return err
+		errScan := rows.Scan(scans...)
+		if errScan != nil {
+			return errScan
 		}
 
 		destSlice.Set(reflect.Append(destSlice, destValue))
@@ -111,9 +122,19 @@ func (db *Executor) GetMany(values interface{}) error {
 
 // GetOne 查询某一条记录
 func (db *Executor) GetOne(obj interface{}) error {
-	rows, err2 := db.Limit(0, 1).GetRows()
-	if err2 != nil {
-		fmt.Println(err2)
+	db.Limit(0, 1)
+
+	sqlStr, paramList := db.getSqlAndParams()
+
+	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	if errSmt != nil {
+		return errSmt
+	}
+	defer smt.Close()
+
+	rows, errRows := smt.Query(paramList...)
+	if errRows != nil {
+		return errRows
 	}
 	defer rows.Close()
 
@@ -121,7 +142,10 @@ func (db *Executor) GetOne(obj interface{}) error {
 	destValue := reflect.ValueOf(obj).Elem()
 
 	//从数据库中读出来的字段名字
-	columnNameList, _ := rows.Columns()
+	columnNameList, errColumns := rows.Columns()
+	if errColumns != nil {
+		return errColumns
+	}
 
 	//从结构体反射出来的属性名
 	fieldNameMap := getFieldNameMap(destValue, destType)
@@ -137,8 +161,7 @@ func (db *Executor) GetOne(obj interface{}) error {
 	return nil
 }
 
-// GetRows 查询行
-func (db *Executor) GetRows() (*sql.Rows, error) {
+func (db *Executor) getSqlAndParams() (string, []any) {
 	var paramList []any
 	fieldStr := handleField(db.SelectList)
 	whereStr, paramList := handleWhere(db.WhereList, paramList)
@@ -156,13 +179,7 @@ func (db *Executor) GetRows() (*sql.Rows, error) {
 		fmt.Println(paramList...)
 	}
 
-	smt, err1 := db.LinkCommon.Prepare(sqlStr)
-	if err1 != nil {
-		fmt.Println(err1)
-	}
-	defer smt.Close()
-
-	return smt.Query(paramList...)
+	return sqlStr, paramList
 }
 
 // Update 更新记录
@@ -248,16 +265,30 @@ func (db *Executor) Min(fieldName string) (float64, error) {
 
 // Value 字段值
 func (db *Executor) Value(fieldName string, dest interface{}) error {
-	rows, err2 := db.Select(fieldName).Limit(0, 1).GetRows()
-	if err2 != nil {
-		fmt.Println(err2)
+
+	db.Select(fieldName).Limit(0, 1)
+
+	sqlStr, paramList := db.getSqlAndParams()
+
+	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	if errSmt != nil {
+		return errSmt
+	}
+	defer smt.Close()
+
+	rows, errRows := smt.Query(paramList...)
+	if errRows != nil {
+		return errRows
 	}
 	defer rows.Close()
 
 	destValue := reflect.ValueOf(dest).Elem()
 
 	//从数据库中读出来的字段名字
-	columnNameList, _ := rows.Columns()
+	columnNameList, errColumns := rows.Columns()
+	if errColumns != nil {
+		return errColumns
+	}
 
 	for rows.Next() {
 		var scans []interface{}
@@ -281,9 +312,19 @@ func (db *Executor) Value(fieldName string, dest interface{}) error {
 
 // Pluck 获取某一列的值
 func (db *Executor) Pluck(fieldName string, values interface{}) error {
-	rows, err2 := db.Select(fieldName).GetRows()
-	if err2 != nil {
-		fmt.Println(err2)
+	db.Select(fieldName)
+
+	sqlStr, paramList := db.getSqlAndParams()
+
+	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	if errSmt != nil {
+		return errSmt
+	}
+	defer smt.Close()
+
+	rows, errRows := smt.Query(paramList...)
+	if errRows != nil {
+		return errRows
 	}
 	defer rows.Close()
 
@@ -292,7 +333,10 @@ func (db *Executor) Pluck(fieldName string, values interface{}) error {
 	destValue := reflect.New(destType).Elem()
 
 	//从数据库中读出来的字段名字
-	columnNameList, _ := rows.Columns()
+	columnNameList, errColumns := rows.Columns()
+	if errColumns != nil {
+		return errColumns
+	}
 
 	for rows.Next() {
 		var scans []interface{}
@@ -357,11 +401,16 @@ func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]inte
 	}
 	defer rows.Close()
 
-	fieldsTypes, _ := rows.ColumnTypes()
-	fields, _ := rows.Columns()
+	fieldsTypes, errType := rows.ColumnTypes()
+	if errType != nil {
+		return make([]map[string]interface{}, 0), errType
+	}
+	fields, errColumns := rows.Columns()
+	if errColumns != nil {
+		return make([]map[string]interface{}, 0), errColumns
+	}
 
 	for rows.Next() {
-
 		data := make(map[string]interface{})
 
 		scans := make([]interface{}, len(fields))
@@ -370,7 +419,7 @@ func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]inte
 		}
 		err := rows.Scan(scans...)
 		if err != nil {
-			return nil, err
+			return make([]map[string]interface{}, 0), err
 		}
 
 		for i, v := range scans {
