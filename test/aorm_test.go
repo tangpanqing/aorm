@@ -41,52 +41,52 @@ type PersonAge struct {
 }
 
 func TestAll(t *testing.T) {
+	name := "mysql"
 	db := testConnect()
 	defer db.Close()
 
-	testMigrate(db)
+	testMigrate(name, db)
 
-	testShowCreateTable(db)
+	testShowCreateTable(name, db)
 
-	id := testInsert(db)
-	testInsertBatch(db)
+	id := testInsert(name, db)
+	testInsertBatch(name, db)
 
-	testGetOne(db, id)
-	testGetMany(db)
-	testUpdate(db, id)
-	testDelete(db, id)
+	testGetOne(name, db, id)
+	testGetMany(name, db)
+	testUpdate(name, db, id)
+	testDelete(name, db, id)
 
-	id2 := testInsert(db)
-	testTable(db)
-	testSelect(db)
-	return
-	testWhere(db)
-	testJoin(db)
-	testGroupBy(db)
-	testHaving(db)
-	testOrderBy(db)
-	testLimit(db)
-	testLock(db, id2)
+	id2 := testInsert(name, db)
+	testTable(name, db)
+	testSelect(name, db)
+	testWhere(name, db)
+	testJoin(name, db)
+	testGroupBy(name, db)
+	testHaving(name, db)
+	testOrderBy(name, db)
+	testLimit(name, db)
+	testLock(name, db, id2)
 
-	testIncrement(db, id2)
-	testDecrement(db, id2)
+	testIncrement(name, db, id2)
+	testDecrement(name, db, id2)
 
-	testValue(db, id2)
+	testValue(name, db, id2)
 
-	testPluck(db)
+	testPluck(name, db)
 
-	testCount(db)
-	testSum(db)
-	testAvg(db)
-	testMin(db)
-	testMax(db)
+	testCount(name, db)
+	testSum(name, db)
+	testAvg(name, db)
+	testMin(name, db)
+	testMax(name, db)
 
-	testQuery(db)
-	testExec(db)
+	testQuery(name, db)
+	testExec(name, db)
 
-	testTransaction(db)
-	testTruncate(db)
-	testHelper(db)
+	testTransaction(name, db)
+	testTruncate(name, db)
+	testHelper(name, db)
 }
 
 func testConnect() *sql.DB {
@@ -115,7 +115,7 @@ func testConnect() *sql.DB {
 	return db
 }
 
-func testMigrate(db *sql.DB) {
+func testMigrate(name string, db *sql.DB) {
 	fmt.Println("--- testMigrate ---")
 
 	//AutoMigrate
@@ -126,17 +126,16 @@ func testMigrate(db *sql.DB) {
 	aorm.Use(db).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
 }
 
-func testShowCreateTable(db *sql.DB) {
+func testShowCreateTable(name string, db *sql.DB) {
 	fmt.Println("--- testShowCreateTable ---")
 
 	showCreate := aorm.Use(db).ShowCreateTable("person")
 	fmt.Println(showCreate)
 }
 
-func testInsert(db *sql.DB) int64 {
-	fmt.Println("--- testInsert ---")
+func testInsert(name string, db *sql.DB) int64 {
 
-	id, errInsert := aorm.Use(db).Debug(true).Insert(&Person{
+	id, errInsert := aorm.Use(db).Debug(false).Insert(&Person{
 		Name:       aorm.StringFrom("Alice"),
 		Sex:        aorm.BoolFrom(false),
 		Age:        aorm.IntFrom(18),
@@ -146,16 +145,13 @@ func testInsert(db *sql.DB) int64 {
 		Test:       aorm.FloatFrom(200.15987654321987654321),
 	})
 	if errInsert != nil {
-		fmt.Println(errInsert)
+		panic(name + "testInsert" + "found err")
 	}
-	fmt.Println(id)
 
 	return id
 }
 
-func testInsertBatch(db *sql.DB) int64 {
-	fmt.Println("--- testInsertBatch ---")
-
+func testInsertBatch(name string, db *sql.DB) int64 {
 	var batch []Person
 	batch = append(batch, Person{
 		Name:       aorm.StringFrom("Alice"),
@@ -177,79 +173,76 @@ func testInsertBatch(db *sql.DB) int64 {
 		Test:       aorm.FloatFrom(200.15987654321987654321),
 	})
 
-	count, errInsertBatch := aorm.Use(db).Debug(true).InsertBatch(&batch)
-	if errInsertBatch != nil {
-		fmt.Println(errInsertBatch)
+	count, err := aorm.Use(db).Debug(false).InsertBatch(&batch)
+	if err != nil {
+		panic(name + "testInsertBatch" + "found err")
 	}
-	fmt.Println(count)
 
 	return count
 }
 
-func testGetOne(db *sql.DB, id int64) {
+func testGetOne(name string, db *sql.DB, id int64) {
 	fmt.Println("--- testGetOne ---")
 
 	var person Person
-	errFind := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).GetOne(&person)
+	errFind := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).GetOne(&person)
 	if errFind != nil {
-		fmt.Println(errFind)
+		panic(name + "testGetOne" + "found err")
 	}
-	fmt.Println(person)
 }
 
-func testGetMany(db *sql.DB) {
-	fmt.Println("--- testGetMany ---")
-
+func testGetMany(name string, db *sql.DB) {
 	var list []Person
-	errSelect := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).GetMany(&list)
+	errSelect := aorm.Use(db).Debug(false).Where(&Person{Type: aorm.IntFrom(0)}).GetMany(&list)
 	if errSelect != nil {
-		fmt.Println(errSelect)
-	}
-	for i := 0; i < len(list); i++ {
-		fmt.Println(list[i])
+		panic(name + "testGetMany" + "found err")
 	}
 }
 
-func testUpdate(db *sql.DB, id int64) {
-	fmt.Println("--- testUpdate ---")
-
-	countUpdate, errUpdate := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Update(&Person{Name: aorm.StringFrom("Bob")})
+func testUpdate(name string, db *sql.DB, id int64) {
+	_, errUpdate := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Update(&Person{Name: aorm.StringFrom("Bob")})
 	if errUpdate != nil {
-		fmt.Println(errUpdate)
+		panic(name + "testGetMany" + "found err")
 	}
-	fmt.Println(countUpdate)
 }
 
-func testDelete(db *sql.DB, id int64) {
-	fmt.Println("--- testDelete ---")
-
-	countDelete, errDelete := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Delete()
+func testDelete(name string, db *sql.DB, id int64) {
+	_, errDelete := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Delete()
 	if errDelete != nil {
-		fmt.Println(errDelete)
+		panic(name + "testDelete" + "found err")
 	}
-	fmt.Println(countDelete)
 }
 
-func testTable(db *sql.DB) {
-	fmt.Println("--- testTable ---")
-
-	aorm.Use(db).Debug(true).Table("person_1").Insert(&Person{Name: aorm.StringFrom("Cherry")})
+func testTable(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Table("person_1").Insert(&Person{Name: aorm.StringFrom("Cherry")})
+	if err != nil {
+		panic(name + "testTable" + "found err")
+	}
 }
 
-func testSelect(db *sql.DB) {
-	fmt.Println("--- testSelect ---")
-
+func testSelect(name string, db *sql.DB) {
 	var listByFiled []Person
-	aorm.Use(db).Debug(true).Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
+	aorm.Use(db).Debug(false).Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
 
-	sub := aorm.Use(db).Table("test_table").SelectCount("test_name", "test_name_count")
-	aorm.Use(db).Debug(true).SelectExp(sub, "test_name_count_new").Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
+	sub := aorm.Start().Table("test_table").SelectCount("test_name", "test_name_count")
+	sub2 := aorm.Start().Table("test_table").Select("id")
+	var where []aorm.WhereItem
+	where = append(where, aorm.WhereItem{Field: "test_field", Opt: aorm.In, Val: sub2})
+
+	err := aorm.Use(db).Debug(true).
+		SelectExp(&sub, "test_name_count_new").
+		SelectExp(&sub2, "test_name_count_new_2").
+		Select("name", "age").
+		Where(&Person{Age: aorm.IntFrom(18)}).
+		WhereArr(where).
+		GetMany(&listByFiled)
+
+	if err != nil {
+		panic(name + " testSelect " + "found err:" + err.Error())
+	}
 }
 
-func testWhere(db *sql.DB) {
-	fmt.Println("--- testWhere ---")
-
-	//Where
+func testWhere(name string, db *sql.DB) {
 	var listByWhere []Person
 
 	var where1 []aorm.WhereItem
@@ -259,47 +252,46 @@ func testWhere(db *sql.DB) {
 	where1 = append(where1, aorm.WhereItem{Field: "money", Opt: aorm.Eq, Val: 100.15})
 	where1 = append(where1, aorm.WhereItem{Field: "name", Opt: aorm.Like, Val: []string{"%", "li", "%"}})
 
-	aorm.Use(db).Debug(true).Table("person").WhereArr(where1).GetMany(&listByWhere)
-	for i := 0; i < len(listByWhere); i++ {
-		fmt.Println(listByWhere[i])
+	err := aorm.Use(db).Debug(false).Table("person").WhereArr(where1).GetMany(&listByWhere)
+	if err != nil {
+		panic(name + "testWhere" + "found err")
 	}
 }
 
-func testJoin(db *sql.DB) {
-	fmt.Println("--- testJoin ---")
-
+func testJoin(name string, db *sql.DB) {
 	var list2 []ArticleVO
 	var where2 []aorm.WhereItem
 	where2 = append(where2, aorm.WhereItem{Field: "o.type", Opt: aorm.Eq, Val: 0})
 	where2 = append(where2, aorm.WhereItem{Field: "p.age", Opt: aorm.In, Val: []int{18, 20}})
-	aorm.Use(db).Debug(true).
+	err := aorm.Use(db).Debug(false).
 		Table("article o").
 		LeftJoin("person p", "p.id=o.person_id").
 		Select("o.*").
 		Select("p.name as person_name").
 		WhereArr(where2).
 		GetMany(&list2)
+	if err != nil {
+		panic(name + "testWhere" + "found err")
+	}
 }
 
-func testGroupBy(db *sql.DB) {
-	fmt.Println("--- testGroupBy ---")
-
+func testGroupBy(name string, db *sql.DB) {
 	var personAge PersonAge
 	var where []aorm.WhereItem
 	where = append(where, aorm.WhereItem{Field: "type", Opt: aorm.Eq, Val: 0})
-	aorm.Use(db).Debug(true).
+	err := aorm.Use(db).Debug(false).
 		Table("person").
 		Select("age").
 		Select("count(age) as age_count").
 		GroupBy("age").
 		WhereArr(where).
 		GetOne(&personAge)
-	fmt.Println(personAge)
+	if err != nil {
+		panic(name + "testGroupBy" + "found err")
+	}
 }
 
-func testHaving(db *sql.DB) {
-	fmt.Println("--- testHaving ---")
-
+func testHaving(name string, db *sql.DB) {
 	var listByHaving []PersonAge
 
 	var where3 []aorm.WhereItem
@@ -308,7 +300,7 @@ func testHaving(db *sql.DB) {
 	var having []aorm.WhereItem
 	having = append(having, aorm.WhereItem{Field: "age_count", Opt: aorm.Gt, Val: 4})
 
-	err := aorm.Use(db).Debug(true).
+	err := aorm.Use(db).Debug(false).
 		Table("person").
 		Select("age").
 		Select("count(age) as age_count").
@@ -317,304 +309,246 @@ func testHaving(db *sql.DB) {
 		HavingArr(having).
 		GetMany(&listByHaving)
 	if err != nil {
-		panic(err)
+		panic(name + "testHaving" + "found err")
 	}
-	fmt.Println(listByHaving)
 }
 
-func testOrderBy(db *sql.DB) {
-	fmt.Println("--- testOrderBy ---")
-
+func testOrderBy(name string, db *sql.DB) {
 	var listByOrder []Person
 	var where []aorm.WhereItem
 	where = append(where, aorm.WhereItem{Field: "type", Opt: aorm.Eq, Val: 0})
-	err := aorm.Use(db).Debug(true).
+	err := aorm.Use(db).Debug(false).
 		Table("person").
 		WhereArr(where).
 		OrderBy("age", aorm.Desc).
 		GetMany(&listByOrder)
 	if err != nil {
-		panic(err)
+		panic(name + "testOrderBy" + "found err")
 	}
-	fmt.Println(listByOrder)
 }
 
-func testLimit(db *sql.DB) {
-	fmt.Println("--- testLimit ---")
-
+func testLimit(name string, db *sql.DB) {
 	var list3 []Person
 	var where1 []aorm.WhereItem
 	where1 = append(where1, aorm.WhereItem{Field: "type", Opt: aorm.Eq, Val: 0})
-	err1 := aorm.Use(db).Debug(true).
+	err1 := aorm.Use(db).Debug(false).
 		Table("person").
 		WhereArr(where1).
 		Limit(50, 10).
 		GetMany(&list3)
 	if err1 != nil {
-		panic(err1)
+		panic(name + "testLimit" + "found err")
 	}
-	fmt.Println(list3)
 
 	var list4 []Person
 	var where2 []aorm.WhereItem
 	where2 = append(where2, aorm.WhereItem{Field: "type", Opt: aorm.Eq, Val: 0})
-	err := aorm.Use(db).Debug(true).
+	err := aorm.Use(db).Debug(false).
 		Table("person").
 		WhereArr(where2).
 		Page(3, 10).
 		GetMany(&list4)
 	if err != nil {
-		panic(err)
+		panic(name + "testPage" + "found err")
 	}
-	fmt.Println(list4)
 }
 
-func testLock(db *sql.DB, id int64) {
-	fmt.Println("--- testLock ---")
+func testLock(name string, db *sql.DB, id int64) {
 
 	var itemByLock Person
-	err := aorm.Use(db).Debug(true).LockForUpdate(true).Where(&Person{Id: aorm.IntFrom(id)}).GetOne(&itemByLock)
+	err := aorm.Use(db).Debug(false).LockForUpdate(true).Where(&Person{Id: aorm.IntFrom(id)}).GetOne(&itemByLock)
 	if err != nil {
-		panic(err)
+		panic(name + "testLock" + "found err")
 	}
-	fmt.Println(itemByLock)
 }
 
-func testIncrement(db *sql.DB, id int64) {
-	fmt.Println("--- testIncrement ---")
-
-	count, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Increment("age", 1)
+func testIncrement(name string, db *sql.DB, id int64) {
+	_, err := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Increment("age", 1)
 	if err != nil {
-		panic(err)
+		panic(name + "testIncrement" + "found err")
 	}
-	fmt.Println(count)
 }
 
-func testDecrement(db *sql.DB, id int64) {
-	fmt.Println("--- testDecrement ---")
-
-	count, err := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Decrement("age", 2)
+func testDecrement(name string, db *sql.DB, id int64) {
+	_, err := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Decrement("age", 2)
 	if err != nil {
-		panic(err)
+		panic(name + "testDecrement" + "found err")
 	}
-	fmt.Println(count)
 }
 
-func testValue(db *sql.DB, id int64) {
+func testValue(dbName string, db *sql.DB, id int64) {
 	fmt.Println("--- testValue ---")
 
 	var name string
-	errName := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("name", &name)
+	errName := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Value("name", &name)
 	if errName != nil {
-		panic(errName)
+		panic(dbName + "testValue" + "found err")
 	}
-	fmt.Println(name)
 
 	var age int64
-	errAge := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("age", &age)
+	errAge := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Value("age", &age)
 	if errAge != nil {
-		panic(errAge)
+		panic(dbName + "testValue" + "found err")
 	}
-	fmt.Println(age)
 
 	var money float32
-	errMoney := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("money", &money)
+	errMoney := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Value("money", &money)
 	if errMoney != nil {
-		panic(errMoney)
+		panic(dbName + "testValue" + "found err")
 	}
-	fmt.Println(money)
 
 	var test float64
-	errTest := aorm.Use(db).Debug(true).Where(&Person{Id: aorm.IntFrom(id)}).Value("test", &test)
+	errTest := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Value("test", &test)
 	if errTest != nil {
-		panic(errTest)
+		panic(dbName + "testValue" + "found err")
 	}
-	fmt.Println(test)
 }
 
-func testPluck(db *sql.DB) {
-	fmt.Println("--- testPluck ---")
+func testPluck(name string, db *sql.DB) {
 
 	var nameList []string
-	errNameList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("name", &nameList)
+	errNameList := aorm.Use(db).Debug(false).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("name", &nameList)
 	if errNameList != nil {
-		panic(errNameList)
-	}
-	for i := 0; i < len(nameList); i++ {
-		fmt.Println(nameList[i])
+		panic(name + "testPluck" + "found err")
 	}
 
 	var ageList []int64
-	errAgeList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("age", &ageList)
+	errAgeList := aorm.Use(db).Debug(false).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("age", &ageList)
 	if errAgeList != nil {
-		panic(errAgeList)
-	}
-	for i := 0; i < len(ageList); i++ {
-		fmt.Println(ageList[i])
+		panic(name + "testPluck" + "found err")
 	}
 
 	var moneyList []float32
-	errMoneyList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("money", &moneyList)
+	errMoneyList := aorm.Use(db).Debug(false).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("money", &moneyList)
 	if errMoneyList != nil {
-		panic(errMoneyList)
-	}
-	for i := 0; i < len(moneyList); i++ {
-		fmt.Println(moneyList[i])
+		panic(name + "testPluck" + "found err")
 	}
 
 	var testList []float64
-	errTestList := aorm.Use(db).Debug(true).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("test", &testList)
+	errTestList := aorm.Use(db).Debug(false).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("test", &testList)
 	if errTestList != nil {
-		panic(errTestList)
-	}
-	for i := 0; i < len(testList); i++ {
-		fmt.Println(testList[i])
+		panic(name + "testPluck" + "found err")
 	}
 }
 
-func testCount(db *sql.DB) {
-	fmt.Println("--- testCount ---")
-
-	count, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Count("*")
+func testCount(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: aorm.IntFrom(18)}).Count("*")
 	if err != nil {
-		panic(err)
+		panic(name + "testCount" + "found err")
 	}
-	fmt.Println(count)
 }
 
-func testSum(db *sql.DB) {
-	fmt.Println("--- testSum ---")
-
-	sum, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Sum("age")
+func testSum(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: aorm.IntFrom(18)}).Sum("age")
 	if err != nil {
-		panic(err)
+		panic(name + "testSum" + "found err")
 	}
-	fmt.Println(sum)
 }
 
-func testAvg(db *sql.DB) {
-	fmt.Println("--- testAvg ---")
-
-	avg, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Avg("age")
+func testAvg(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: aorm.IntFrom(18)}).Avg("age")
 	if err != nil {
-		panic(err)
+		panic(name + "testAvg" + "found err")
 	}
-	fmt.Println(avg)
 }
 
-func testMin(db *sql.DB) {
-	fmt.Println("--- testMin ---")
-
-	min, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Min("age")
+func testMin(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: aorm.IntFrom(18)}).Min("age")
 	if err != nil {
-		panic(err)
+		panic(name + "testMin" + "found err")
 	}
-	fmt.Println(min)
 }
 
-func testMax(db *sql.DB) {
-	fmt.Println("--- testMax ---")
-
-	max, err := aorm.Use(db).Debug(true).Where(&Person{Age: aorm.IntFrom(18)}).Max("age")
+func testMax(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: aorm.IntFrom(18)}).Max("age")
 	if err != nil {
-		panic(err)
+		panic(name + "testMax" + "found err")
 	}
-	fmt.Println(max)
 }
 
-func testQuery(db *sql.DB) {
-	fmt.Println("--- testQuery ---")
-
-	resQuery, err := aorm.Use(db).Debug(true).Query("SELECT * FROM person WHERE id=? AND type=?", 1, 3)
+func testQuery(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Query("SELECT * FROM person WHERE id=? AND type=?", 1, 3)
 	if err != nil {
-		panic(err)
+		panic(name + "testQuery" + "found err")
 	}
-
-	fmt.Println(resQuery)
 }
 
-func testExec(db *sql.DB) {
-	fmt.Println("--- testExec ---")
-
-	resExec, err := aorm.Use(db).Debug(true).Exec("UPDATE person SET name = ? WHERE id=?", "Bob", 3)
+func testExec(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Exec("UPDATE person SET name = ? WHERE id=?", "Bob", 3)
 	if err != nil {
-		panic(err)
+		panic(name + "testExec" + "found err")
 	}
-	fmt.Println(resExec.RowsAffected())
 }
 
-func testTransaction(db *sql.DB) {
-	fmt.Println("--- testTransaction ---")
+func testTransaction(name string, db *sql.DB) {
 
 	tx, _ := db.Begin()
 
-	id, errInsert := aorm.Use(tx).Debug(true).Insert(&Person{
+	id, errInsert := aorm.Use(tx).Debug(false).Insert(&Person{
 		Name: aorm.StringFrom("Alice"),
 	})
 
 	if errInsert != nil {
-		fmt.Println(errInsert)
 		tx.Rollback()
+		panic(name + "testTransaction" + "found err")
 		return
 	}
 
-	_, errCount := aorm.Use(tx).Debug(true).Where(&Person{
+	_, errCount := aorm.Use(tx).Debug(false).Where(&Person{
 		Id: aorm.IntFrom(id),
 	}).Count("*")
 	if errCount != nil {
-		fmt.Println(errCount)
 		tx.Rollback()
+		panic(name + "testTransaction" + "found err")
 		return
 	}
 
 	var person Person
-	errPerson := aorm.Use(tx).Debug(true).Where(&Person{
+	errPerson := aorm.Use(tx).Debug(false).Where(&Person{
 		Id: aorm.IntFrom(id),
 	}).GetOne(&person)
 	if errPerson != nil {
-		fmt.Println(errPerson)
 		tx.Rollback()
+		panic(name + "testTransaction" + "found err")
 		return
 	}
 
-	countUpdate, errUpdate := aorm.Use(tx).Debug(true).Where(&Person{
+	_, errUpdate := aorm.Use(tx).Debug(false).Where(&Person{
 		Id: aorm.IntFrom(id),
 	}).Update(&Person{
 		Name: aorm.StringFrom("Bob"),
 	})
 
 	if errUpdate != nil {
-		fmt.Println(errUpdate)
 		tx.Rollback()
+		panic(name + "testTransaction" + "found err")
 		return
 	}
 
-	fmt.Println(countUpdate)
 	tx.Commit()
 }
 
-func testTruncate(db *sql.DB) {
-	fmt.Println("--- testTruncate ---")
-
-	count, err := aorm.Use(db).Debug(true).Table("person").Truncate()
+func testTruncate(name string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Table("person").Truncate()
 	if err != nil {
-		panic(err)
+		panic(name + "testTruncate" + "found err")
 	}
-	fmt.Println(count)
 }
 
-func testHelper(db *sql.DB) {
-	fmt.Println("--- testHelper ---")
+func testHelper(name string, db *sql.DB) {
 
 	var list2 []ArticleVO
 	var where2 []aorm.WhereItem
 	where2 = append(where2, aorm.WhereItem{Field: "o.type", Opt: aorm.Eq, Val: 0})
 	where2 = append(where2, aorm.WhereItem{Field: "p.age", Opt: aorm.In, Val: []int{18, 20}})
-	aorm.Use(db).Debug(true).
+	err := aorm.Use(db).Debug(false).
 		Table("article o").
 		LeftJoin("person p", aorm.Ul("p.id=o.personId")).
 		Select("o.*").
 		Select(aorm.Ul("p.name as personName")).
 		WhereArr(where2).
 		GetMany(&list2)
+	if err != nil {
+		panic(name + "testHelper" + "found err")
+	}
 }

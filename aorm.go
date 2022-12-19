@@ -17,7 +17,7 @@ type Executor struct {
 	LinkCommon      LinkCommon
 	TableName       string
 	SelectList      []string
-	SelectExpList   []ExpItem
+	SelectExpList   []*ExpItem
 	GroupList       []string
 	WhereList       []WhereItem
 	JoinList        []string
@@ -31,7 +31,7 @@ type Executor struct {
 }
 
 type ExpItem struct {
-	Executor  *Executor
+	Executor  **Executor
 	FieldName string
 }
 
@@ -41,6 +41,12 @@ func Use(linkCommon LinkCommon) *Executor {
 		LinkCommon: linkCommon,
 	}
 
+	return executor
+}
+
+// Start 使用数据库连接，或者事务
+func Start() *Executor {
+	executor := &Executor{}
 	return executor
 }
 

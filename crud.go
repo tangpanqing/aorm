@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unsafe"
 )
 
 const Desc = "DESC"
@@ -545,46 +546,46 @@ func (db *Executor) Debug(isDebug bool) *Executor {
 }
 
 // Select 链式操作-查询哪些字段,默认 *
-func (db *Executor) Select(f string) *Executor {
-	db.SelectList = append(db.SelectList, f)
+func (db *Executor) Select(fields ...string) *Executor {
+	db.SelectList = append(db.SelectList, fields...)
 	return db
 }
 
 // SelectCount 链式操作-count(field) as field_new
-func (db *Executor) SelectCount(f string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "count("+f+") AS "+fieldNew)
+func (db *Executor) SelectCount(field string, fieldNew string) *Executor {
+	db.SelectList = append(db.SelectList, "count("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectSum 链式操作-sum(field) as field_new
-func (db *Executor) SelectSum(f string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "sum("+f+") AS "+fieldNew)
+func (db *Executor) SelectSum(field string, fieldNew string) *Executor {
+	db.SelectList = append(db.SelectList, "sum("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectMin 链式操作-min(field) as field_new
-func (db *Executor) SelectMin(f string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "min("+f+") AS "+fieldNew)
+func (db *Executor) SelectMin(field string, fieldNew string) *Executor {
+	db.SelectList = append(db.SelectList, "min("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectMax 链式操作-max(field) as field_new
-func (db *Executor) SelectMax(f string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "max("+f+") AS "+fieldNew)
+func (db *Executor) SelectMax(field string, fieldNew string) *Executor {
+	db.SelectList = append(db.SelectList, "max("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectAvg 链式操作-avg(field) as field_new
-func (db *Executor) SelectAvg(f string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "avg("+f+") AS "+fieldNew)
+func (db *Executor) SelectAvg(field string, fieldNew string) *Executor {
+	db.SelectList = append(db.SelectList, "avg("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectExp 链式操作-表达式
-func (db *Executor) SelectExp(db2 *Executor, fieldNew string) *Executor {
-	db.SelectExpList = append(db.SelectExpList, ExpItem{
-		Executor:  db2,
-		FieldName: fieldNew,
+func (db *Executor) SelectExp(dbSub **Executor, fieldName string) *Executor {
+	db.SelectExpList = append(db.SelectExpList, &ExpItem{
+		Executor:  dbSub,
+		FieldName: fieldName,
 	})
 	return db
 }
@@ -642,8 +643,8 @@ func (db *Executor) WhereArr(whereList []WhereItem) *Executor {
 }
 
 // GroupBy 链式操作,以某字段进行分组
-func (db *Executor) GroupBy(f string) *Executor {
-	db.GroupList = append(db.GroupList, f)
+func (db *Executor) GroupBy(fieldName string) *Executor {
+	db.GroupList = append(db.GroupList, fieldName)
 	return db
 }
 
@@ -702,14 +703,15 @@ func (db *Executor) LockForUpdate(isLockForUpdate bool) *Executor {
 }
 
 //拼接SQL,字段相关
-func handleField(selectList []string, selectExpList []ExpItem, paramList []any) (string, []any) {
+func handleField(selectList []string, selectExpList []*ExpItem, paramList []any) (string, []any) {
 	if len(selectList) == 0 && len(selectExpList) == 0 {
 		return "*", paramList
 	}
 
 	//处理子语句
 	for i := 0; i < len(selectExpList); i++ {
-		subSql, subParamList := selectExpList[i].Executor.getSqlAndParams()
+		executor := *(*Executor)(unsafe.Pointer(selectExpList[i].Executor))
+		subSql, subParamList := executor.getSqlAndParams()
 		selectList = append(selectList, "("+subSql+") AS "+selectExpList[i].FieldName)
 		paramList = append(paramList, subParamList...)
 	}
@@ -816,6 +818,8 @@ func handleLockForUpdate(isLock bool) string {
 func whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
+		fmt.Println(reflect.TypeOf(where[i].Field))
+
 		if where[i].Opt == Eq || where[i].Opt == Ne || where[i].Opt == Gt || where[i].Opt == Ge || where[i].Opt == Lt || where[i].Opt == Le {
 			//如果是浮点数查询
 			switch where[i].Val.(type) {
@@ -864,10 +868,6 @@ func whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 			whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"("+strings.Join(placeholder, ",")+")")
 			paramList = append(paramList, values...)
 		}
-
-		//if where[i].Opt == Raw {
-		//	whereList = append(whereList, where[i].Field+" "+fmt.Sprintf("%v", where[i].Val))
-		//}
 	}
 
 	return whereList, paramList
