@@ -65,14 +65,18 @@ func (db *Executor) Migrate(tableName string, dest interface{}) {
 	db.migrateCommon(tableName, typeOf)
 }
 
-func (db *Executor) migrateCommon(tableName string, typeOf reflect.Type) {
+func (db *Executor) migrateCommon(tableName string, typeOf reflect.Type) error {
 	tableFromCode := db.getTableFromCode(tableName)
 	columnsFromCode := db.getColumnsFromCode(typeOf)
 	indexsFromCode := db.getIndexsFromCode(typeOf, tableFromCode)
 
 	//获取数据库名称
 	var dbName string
-	db.RawSql("SELECT DATABASE()").Value("DATABASE()", &dbName)
+	err := db.RawSql("SELECT DATABASE()").Value("DATABASE()", &dbName)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
 
 	//查询表信息,如果找不到就新建
 	sql := "SELECT TABLE_NAME,ENGINE,TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA =" + "'" + dbName + "' AND TABLE_NAME =" + "'" + tableName + "'"
@@ -91,6 +95,8 @@ func (db *Executor) migrateCommon(tableName string, typeOf reflect.Type) {
 	} else {
 		db.createTable(tableFromCode, columnsFromCode, indexsFromCode)
 	}
+
+	return nil
 }
 
 func (db *Executor) getTableFromCode(tableName string) Table {

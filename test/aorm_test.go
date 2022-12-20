@@ -3,6 +3,7 @@ package test
 import (
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/tangpanqing/aorm"
 	"testing"
 	"time"
@@ -52,56 +53,65 @@ type PersonWithArticleCount struct {
 }
 
 func TestAll(t *testing.T) {
-	name := "mysql"
-	db := testConnect()
-	defer db.Close()
 
-	testMigrate(name, db)
+	link, _ := aorm.Open("sqlite3", "E:/hello_sqlite3.db")
 
-	testShowCreateTable(name, db)
-
-	id := testInsert(name, db)
-	testInsertBatch(name, db)
-
-	testGetOne(name, db, id)
-	testGetMany(name, db)
-	testUpdate(name, db, id)
-	testDelete(name, db, id)
-
-	id2 := testInsert(name, db)
-	testTable(name, db)
-	testSelect(name, db)
-	testSelectWithSub(name, db)
-	testWhereWithSub(name, db)
-	testWhere(name, db)
-	testJoin(name, db)
-	testGroupBy(name, db)
-	testHaving(name, db)
-	testOrderBy(name, db)
-	testLimit(name, db)
-	testLock(name, db, id2)
-
-	testIncrement(name, db, id2)
-	testDecrement(name, db, id2)
-
-	testValue(name, db, id2)
-
-	testPluck(name, db)
-
-	testCount(name, db)
-	testSum(name, db)
-	testAvg(name, db)
-	testMin(name, db)
-	testMax(name, db)
-
-	testExec(name, db)
-
-	testTransaction(name, db)
-	testTruncate(name, db)
-	testHelper(name, db)
+	dbMap := make(map[string]*aorm.Link)
+	//dbMap["mysql"] = testMysqlConnect()
+	dbMap["sqlite3"] = link
+	//
+	for name, db := range dbMap {
+		testMigrateNew(name, db)
+		//
+		//	testShowCreateTable(name, db)
+		//
+		//	id := testInsert(name, db)
+		//	testInsertBatch(name, db)
+		//
+		//	testGetOne(name, db, id)
+		//	testGetMany(name, db)
+		//	testUpdate(name, db, id)
+		//	testDelete(name, db, id)
+		//
+		//	id2 := testInsert(name, db)
+		//	testTable(name, db)
+		//	testSelect(name, db)
+		//	testSelectWithSub(name, db)
+		//	testWhereWithSub(name, db)
+		//	testWhere(name, db)
+		//	testJoin(name, db)
+		//	testGroupBy(name, db)
+		//	testHaving(name, db)
+		//	testOrderBy(name, db)
+		//	testLimit(name, db)
+		//	testLock(name, db, id2)
+		//
+		//	testIncrement(name, db, id2)
+		//	testDecrement(name, db, id2)
+		//
+		//	testValue(name, db, id2)
+		//
+		//	testPluck(name, db)
+		//
+		//	testCount(name, db)
+		//	testSum(name, db)
+		//	testAvg(name, db)
+		//	testMin(name, db)
+		//	testMax(name, db)
+		//
+		//	testExec(name, db)
+		//
+		//	testTransaction(name, db)
+		//	testTruncate(name, db)
+		//	testHelper(name, db)
+	}
+	//
+	//for _, db := range dbMap {
+	//	db.Close()
+	//}
 }
 
-func testConnect() *sql.DB {
+func testMysqlConnect() *sql.DB {
 	//replace this database param
 	username := "root"
 	password := "root"
@@ -123,6 +133,32 @@ func testConnect() *sql.DB {
 	}
 
 	return db
+}
+
+func testSqlite3Connect() *sql.DB {
+	//connect
+	db, err := sql.Open("sqlite3", "E:/hello_sqlite3.db")
+	if err != nil {
+		panic(err)
+	}
+	//defer db.Close()
+
+	//ping test
+	err1 := db.Ping()
+	if err1 != nil {
+		panic(err1)
+	}
+
+	return db
+}
+
+func testMigrateNew(name string, db *aorm.Link) {
+	//AutoMigrate
+	aorm.UseNew(db).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
+	aorm.UseNew(db).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
+
+	//Migrate
+	aorm.UseNew(db).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
 }
 
 func testMigrate(name string, db *sql.DB) {
