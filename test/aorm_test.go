@@ -94,7 +94,6 @@ func TestAll(t *testing.T) {
 	testMin(name, db)
 	testMax(name, db)
 
-	testQuery(name, db)
 	testExec(name, db)
 
 	testTransaction(name, db)
@@ -127,7 +126,6 @@ func testConnect() *sql.DB {
 }
 
 func testMigrate(name string, db *sql.DB) {
-
 	//AutoMigrate
 	aorm.Use(db).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
 	aorm.Use(db).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
@@ -206,7 +204,7 @@ func testGetMany(name string, db *sql.DB) {
 	var list []Person
 	errSelect := aorm.Use(db).Debug(false).Where(&Person{Type: aorm.IntFrom(0)}).GetMany(&list)
 	if errSelect != nil {
-		panic(name + "testGetMany" + "found err")
+		panic(name + " testGetMany " + "found err:" + errSelect.Error())
 	}
 }
 
@@ -441,7 +439,7 @@ func testPluck(name string, db *sql.DB) {
 	var ageList []int64
 	errAgeList := aorm.Use(db).Debug(false).Where(&Person{Type: aorm.IntFrom(0)}).Limit(0, 3).Pluck("age", &ageList)
 	if errAgeList != nil {
-		panic(name + "testPluck" + "found err")
+		panic(name + "testPluck" + "found err:" + errAgeList.Error())
 	}
 
 	var moneyList []float32
@@ -489,13 +487,6 @@ func testMax(name string, db *sql.DB) {
 	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: aorm.IntFrom(18)}).Max("age")
 	if err != nil {
 		panic(name + "testMax" + "found err")
-	}
-}
-
-func testQuery(name string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Query("SELECT * FROM person WHERE id=? AND type=?", 1, 3)
-	if err != nil {
-		panic(name + "testQuery" + "found err")
 	}
 }
 

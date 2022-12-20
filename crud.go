@@ -134,21 +134,31 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 	return count, nil
 }
 
-// GetMany 查询记录(新)
-func (db *Executor) GetMany(values interface{}) error {
+// GetRows 获取行操作
+func (db *Executor) GetRows() (*sql.Rows, error) {
 	sqlStr, paramList := db.GetSqlAndParams()
 
 	smt, errSmt := db.linkCommon.Prepare(sqlStr)
 	if errSmt != nil {
-		return errSmt
+		return nil, errSmt
 	}
-	defer smt.Close()
+	//defer smt.Close()
 
 	rows, errRows := smt.Query(paramList...)
 	if errRows != nil {
+		return nil, errRows
+	}
+
+	return rows, nil
+}
+
+// GetMany 查询记录(新)
+func (db *Executor) GetMany(values interface{}) error {
+	rows, errRows := db.GetRows()
+	defer rows.Close()
+	if errRows != nil {
 		return errRows
 	}
-	defer rows.Close()
 
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
@@ -181,19 +191,11 @@ func (db *Executor) GetMany(values interface{}) error {
 func (db *Executor) GetOne(obj interface{}) error {
 	db.Limit(0, 1)
 
-	sqlStr, paramList := db.GetSqlAndParams()
-
-	smt, errSmt := db.linkCommon.Prepare(sqlStr)
-	if errSmt != nil {
-		return errSmt
-	}
-	defer smt.Close()
-
-	rows, errRows := smt.Query(paramList...)
+	rows, errRows := db.GetRows()
+	defer rows.Close()
 	if errRows != nil {
 		return errRows
 	}
-	defer rows.Close()
 
 	destType := reflect.TypeOf(obj).Elem()
 	destValue := reflect.ValueOf(obj).Elem()
@@ -218,8 +220,19 @@ func (db *Executor) GetOne(obj interface{}) error {
 	return nil
 }
 
-func (db *Executor) GetSqlAndParams() (string, []any) {
-	var paramList []any
+// RawSql 执行原始的sql语句
+func (db *Executor) RawSql(sql string, paramList ...interface{}) *Executor {
+	db.sql = sql
+	db.paramList = paramList
+	return db
+}
+
+func (db *Executor) GetSqlAndParams() (string, []interface{}) {
+	if db.sql != "" {
+		return db.sql, db.paramList
+	}
+
+	var paramList []interface{}
 
 	fieldStr, paramList := handleField(db.selectList, db.selectExpList, paramList)
 	whereStr, paramList := handleWhere(db.whereList, paramList)
@@ -323,22 +336,13 @@ func (db *Executor) Min(fieldName string) (float64, error) {
 
 // Value 字段值
 func (db *Executor) Value(fieldName string, dest interface{}) error {
-
 	db.Select(fieldName).Limit(0, 1)
 
-	sqlStr, paramList := db.GetSqlAndParams()
-
-	smt, errSmt := db.linkCommon.Prepare(sqlStr)
-	if errSmt != nil {
-		return errSmt
-	}
-	defer smt.Close()
-
-	rows, errRows := smt.Query(paramList...)
+	rows, errRows := db.GetRows()
+	defer rows.Close()
 	if errRows != nil {
 		return errRows
 	}
-	defer rows.Close()
 
 	destValue := reflect.ValueOf(dest).Elem()
 
@@ -372,19 +376,11 @@ func (db *Executor) Value(fieldName string, dest interface{}) error {
 func (db *Executor) Pluck(fieldName string, values interface{}) error {
 	db.Select(fieldName)
 
-	sqlStr, paramList := db.GetSqlAndParams()
-
-	smt, errSmt := db.linkCommon.Prepare(sqlStr)
-	if errSmt != nil {
-		return errSmt
-	}
-	defer smt.Close()
-
-	rows, errRows := smt.Query(paramList...)
+	rows, errRows := db.GetRows()
+	defer rows.Close()
 	if errRows != nil {
 		return errRows
 	}
-	defer rows.Close()
 
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
@@ -436,71 +432,6 @@ func (db *Executor) Decrement(fieldName string, step int) (int64, error) {
 	sqlStr := "UPDATE " + db.tableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
 
 	return db.ExecAffected(sqlStr, paramList...)
-}
-
-// Query 通用查询
-func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]interface{}, error) {
-	if db.isDebug {
-		fmt.Println(sqlStr)
-		fmt.Println(args...)
-	}
-
-	var listData []map[string]interface{}
-
-	smt, err1 := db.linkCommon.Prepare(sqlStr)
-	if err1 != nil {
-		return listData, err1
-	}
-	defer smt.Close()
-
-	rows, err2 := smt.Query(args...)
-	if err2 != nil {
-		return listData, err2
-	}
-	defer rows.Close()
-
-	fieldsTypes, errType := rows.ColumnTypes()
-	if errType != nil {
-		return make([]map[string]interface{}, 0), errType
-	}
-	fields, errColumns := rows.Columns()
-	if errColumns != nil {
-		return make([]map[string]interface{}, 0), errColumns
-	}
-
-	for rows.Next() {
-		data := make(map[string]interface{})
-
-		scans := make([]interface{}, len(fields))
-		for i := range scans {
-			scans[i] = &scans[i]
-		}
-		err := rows.Scan(scans...)
-		if err != nil {
-			return make([]map[string]interface{}, 0), err
-		}
-
-		for i, v := range scans {
-			if v == nil {
-				data[fields[i]] = v
-			} else {
-				if fieldsTypes[i].DatabaseTypeName() == "VARCHAR" || fieldsTypes[i].DatabaseTypeName() == "TEXT" || fieldsTypes[i].DatabaseTypeName() == "CHAR" || fieldsTypes[i].DatabaseTypeName() == "LONGTEXT" {
-					data[fields[i]] = fmt.Sprintf("%s", v)
-				} else if fieldsTypes[i].DatabaseTypeName() == "INT" || fieldsTypes[i].DatabaseTypeName() == "BIGINT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED INT" || fieldsTypes[i].DatabaseTypeName() == "UNSIGNED BIGINT" {
-					data[fields[i]] = fmt.Sprintf("%v", v)
-				} else if fieldsTypes[i].DatabaseTypeName() == "DECIMAL" {
-					data[fields[i]] = string(v.([]uint8))
-				} else {
-					data[fields[i]] = v
-				}
-			}
-		}
-
-		listData = append(listData, data)
-	}
-
-	db.clear()
-	return listData, nil
 }
 
 // Exec 通用执行-新增,更新,删除
@@ -1177,7 +1108,7 @@ func getFieldNameMap(destValue reflect.Value, destType reflect.Type) map[string]
 func getScans(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
 	var scans []interface{}
 	for _, columnName := range columnNameList {
-		fieldName := CamelString(columnName)
+		fieldName := CamelString(strings.ToLower(columnName))
 		index, ok := fieldNameMap[fieldName]
 		if ok {
 			scans = append(scans, destValue.Field(index).Addr().Interface())

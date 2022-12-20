@@ -14,7 +14,10 @@ type LinkCommon interface {
 
 // Executor 查询记录所需要的条件
 type Executor struct {
-	linkCommon      LinkCommon
+	//数据库操作连接
+	linkCommon LinkCommon
+
+	//查询参数
 	tableName       string
 	selectList      []string
 	selectExpList   []*ExpItem
@@ -27,7 +30,13 @@ type Executor struct {
 	pageSize        int
 	isDebug         bool
 	isLockForUpdate bool
-	opinionList     []OpinionItem
+
+	//sql与参数
+	sql       string
+	paramList []interface{}
+
+	//表属性
+	opinionList []OpinionItem
 }
 
 type ExpItem struct {
@@ -63,5 +72,7 @@ func (db *Executor) clear() {
 	db.pageSize = 0
 	db.isDebug = false
 	db.isLockForUpdate = false
+	db.sql = ""
+	db.paramList = make([]interface{}, 0)
 	db.opinionList = make([]OpinionItem, 0)
 }
