@@ -48,8 +48,8 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.TableName == "" {
-		db.TableName = reflectTableName(typeOf, valueOf)
+	if db.tableName == "" {
+		db.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	var keys []string
@@ -66,7 +66,7 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 		}
 	}
 
-	sqlStr := "INSERT INTO " + db.TableName + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
+	sqlStr := "INSERT INTO " + db.tableName + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
 
 	res, err := db.Exec(sqlStr, paramList...)
 	if err != nil {
@@ -95,8 +95,8 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 	typeOf := reflect.TypeOf(values).Elem().Elem()
 
 	//如果没有设置表名
-	if db.TableName == "" {
-		db.TableName = reflectTableName(typeOf, valueOf.Index(0))
+	if db.tableName == "" {
+		db.tableName = reflectTableName(typeOf, valueOf.Index(0))
 	}
 
 	for j := 0; j < valueOf.Len(); j++ {
@@ -119,7 +119,7 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 		place = append(place, "("+strings.Join(placeItem, ",")+")")
 	}
 
-	sqlStr := "INSERT INTO " + db.TableName + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
+	sqlStr := "INSERT INTO " + db.tableName + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
 
 	res, err := db.Exec(sqlStr, paramList...)
 	if err != nil {
@@ -136,9 +136,9 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 
 // GetMany 查询记录(新)
 func (db *Executor) GetMany(values interface{}) error {
-	sqlStr, paramList := db.getSqlAndParams()
+	sqlStr, paramList := db.GetSqlAndParams()
 
-	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	smt, errSmt := db.linkCommon.Prepare(sqlStr)
 	if errSmt != nil {
 		return errSmt
 	}
@@ -181,9 +181,9 @@ func (db *Executor) GetMany(values interface{}) error {
 func (db *Executor) GetOne(obj interface{}) error {
 	db.Limit(0, 1)
 
-	sqlStr, paramList := db.getSqlAndParams()
+	sqlStr, paramList := db.GetSqlAndParams()
 
-	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	smt, errSmt := db.linkCommon.Prepare(sqlStr)
 	if errSmt != nil {
 		return errSmt
 	}
@@ -218,20 +218,21 @@ func (db *Executor) GetOne(obj interface{}) error {
 	return nil
 }
 
-func (db *Executor) getSqlAndParams() (string, []any) {
+func (db *Executor) GetSqlAndParams() (string, []any) {
 	var paramList []any
-	fieldStr, paramList := handleField(db.SelectList, db.SelectExpList, paramList)
-	whereStr, paramList := handleWhere(db.WhereList, paramList)
-	joinStr := handleJoin(db.JoinList)
-	groupStr := handleGroup(db.GroupList)
-	havingStr, paramList := handleHaving(db.HavingList, paramList)
-	orderStr := handleOrder(db.OrderList)
-	limitStr, paramList := handleLimit(db.Offset, db.PageSize, paramList)
-	lockStr := handleLockForUpdate(db.IsLockForUpdate)
 
-	sqlStr := "SELECT " + fieldStr + " FROM " + db.TableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
+	fieldStr, paramList := handleField(db.selectList, db.selectExpList, paramList)
+	whereStr, paramList := handleWhere(db.whereList, paramList)
+	joinStr := handleJoin(db.joinList)
+	groupStr := handleGroup(db.groupList)
+	havingStr, paramList := handleHaving(db.havingList, paramList)
+	orderStr := handleOrder(db.orderList)
+	limitStr, paramList := handleLimit(db.offset, db.pageSize, paramList)
+	lockStr := handleLockForUpdate(db.isLockForUpdate)
 
-	if db.IsDebug {
+	sqlStr := "SELECT " + fieldStr + " FROM " + db.tableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
+
+	if db.isDebug {
 		fmt.Println(sqlStr)
 		fmt.Println(paramList...)
 	}
@@ -243,8 +244,8 @@ func (db *Executor) getSqlAndParams() (string, []any) {
 func (db *Executor) Update(dest interface{}) (int64, error) {
 	var paramList []any
 	setStr, paramList := db.handleSet(dest, paramList)
-	whereStr, paramList := handleWhere(db.WhereList, paramList)
-	sqlStr := "UPDATE " + db.TableName + setStr + whereStr
+	whereStr, paramList := handleWhere(db.whereList, paramList)
+	sqlStr := "UPDATE " + db.tableName + setStr + whereStr
 
 	return db.ExecAffected(sqlStr, paramList...)
 }
@@ -252,15 +253,15 @@ func (db *Executor) Update(dest interface{}) (int64, error) {
 // Delete 删除记录
 func (db *Executor) Delete() (int64, error) {
 	var paramList []any
-	whereStr, paramList := handleWhere(db.WhereList, paramList)
-	sqlStr := "DELETE FROM " + db.TableName + whereStr
+	whereStr, paramList := handleWhere(db.whereList, paramList)
+	sqlStr := "DELETE FROM " + db.tableName + whereStr
 
 	return db.ExecAffected(sqlStr, paramList...)
 }
 
 // Truncate 清空记录
 func (db *Executor) Truncate() (int64, error) {
-	sqlStr := "TRUNCATE TABLE  " + db.TableName
+	sqlStr := "TRUNCATE TABLE  " + db.tableName
 
 	return db.ExecAffected(sqlStr)
 }
@@ -325,9 +326,9 @@ func (db *Executor) Value(fieldName string, dest interface{}) error {
 
 	db.Select(fieldName).Limit(0, 1)
 
-	sqlStr, paramList := db.getSqlAndParams()
+	sqlStr, paramList := db.GetSqlAndParams()
 
-	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	smt, errSmt := db.linkCommon.Prepare(sqlStr)
 	if errSmt != nil {
 		return errSmt
 	}
@@ -371,9 +372,9 @@ func (db *Executor) Value(fieldName string, dest interface{}) error {
 func (db *Executor) Pluck(fieldName string, values interface{}) error {
 	db.Select(fieldName)
 
-	sqlStr, paramList := db.getSqlAndParams()
+	sqlStr, paramList := db.GetSqlAndParams()
 
-	smt, errSmt := db.LinkCommon.Prepare(sqlStr)
+	smt, errSmt := db.linkCommon.Prepare(sqlStr)
 	if errSmt != nil {
 		return errSmt
 	}
@@ -421,8 +422,8 @@ func (db *Executor) Pluck(fieldName string, values interface{}) error {
 func (db *Executor) Increment(fieldName string, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := handleWhere(db.WhereList, paramList)
-	sqlStr := "UPDATE " + db.TableName + " SET " + fieldName + "=" + fieldName + "+?" + whereStr
+	whereStr, paramList := handleWhere(db.whereList, paramList)
+	sqlStr := "UPDATE " + db.tableName + " SET " + fieldName + "=" + fieldName + "+?" + whereStr
 
 	return db.ExecAffected(sqlStr, paramList...)
 }
@@ -431,22 +432,22 @@ func (db *Executor) Increment(fieldName string, step int) (int64, error) {
 func (db *Executor) Decrement(fieldName string, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := handleWhere(db.WhereList, paramList)
-	sqlStr := "UPDATE " + db.TableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
+	whereStr, paramList := handleWhere(db.whereList, paramList)
+	sqlStr := "UPDATE " + db.tableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
 
 	return db.ExecAffected(sqlStr, paramList...)
 }
 
 // Query 通用查询
 func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]interface{}, error) {
-	if db.IsDebug {
+	if db.isDebug {
 		fmt.Println(sqlStr)
 		fmt.Println(args...)
 	}
 
 	var listData []map[string]interface{}
 
-	smt, err1 := db.LinkCommon.Prepare(sqlStr)
+	smt, err1 := db.linkCommon.Prepare(sqlStr)
 	if err1 != nil {
 		return listData, err1
 	}
@@ -504,12 +505,12 @@ func (db *Executor) Query(sqlStr string, args ...interface{}) ([]map[string]inte
 
 // Exec 通用执行-新增,更新,删除
 func (db *Executor) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
-	if db.IsDebug {
+	if db.isDebug {
 		fmt.Println(sqlStr)
 		fmt.Println(args...)
 	}
 
-	smt, err1 := db.LinkCommon.Prepare(sqlStr)
+	smt, err1 := db.linkCommon.Prepare(sqlStr)
 	if err1 != nil {
 		return nil, err1
 	}
@@ -541,49 +542,49 @@ func (db *Executor) ExecAffected(sqlStr string, args ...interface{}) (int64, err
 
 // Debug 链式操作-是否开启调试,打印sql
 func (db *Executor) Debug(isDebug bool) *Executor {
-	db.IsDebug = isDebug
+	db.isDebug = isDebug
 	return db
 }
 
 // Select 链式操作-查询哪些字段,默认 *
 func (db *Executor) Select(fields ...string) *Executor {
-	db.SelectList = append(db.SelectList, fields...)
+	db.selectList = append(db.selectList, fields...)
 	return db
 }
 
 // SelectCount 链式操作-count(field) as field_new
 func (db *Executor) SelectCount(field string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "count("+field+") AS "+fieldNew)
+	db.selectList = append(db.selectList, "count("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectSum 链式操作-sum(field) as field_new
 func (db *Executor) SelectSum(field string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "sum("+field+") AS "+fieldNew)
+	db.selectList = append(db.selectList, "sum("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectMin 链式操作-min(field) as field_new
 func (db *Executor) SelectMin(field string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "min("+field+") AS "+fieldNew)
+	db.selectList = append(db.selectList, "min("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectMax 链式操作-max(field) as field_new
 func (db *Executor) SelectMax(field string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "max("+field+") AS "+fieldNew)
+	db.selectList = append(db.selectList, "max("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectAvg 链式操作-avg(field) as field_new
 func (db *Executor) SelectAvg(field string, fieldNew string) *Executor {
-	db.SelectList = append(db.SelectList, "avg("+field+") AS "+fieldNew)
+	db.selectList = append(db.selectList, "avg("+field+") AS "+fieldNew)
 	return db
 }
 
 // SelectExp 链式操作-表达式
 func (db *Executor) SelectExp(dbSub **Executor, fieldName string) *Executor {
-	db.SelectExpList = append(db.SelectExpList, &ExpItem{
+	db.selectExpList = append(db.selectExpList, &ExpItem{
 		Executor:  dbSub,
 		FieldName: fieldName,
 	})
@@ -592,25 +593,25 @@ func (db *Executor) SelectExp(dbSub **Executor, fieldName string) *Executor {
 
 // Table 链式操作-从哪个表查询,允许直接写别名,例如 person p
 func (db *Executor) Table(tableName string) *Executor {
-	db.TableName = tableName
+	db.tableName = tableName
 	return db
 }
 
 // LeftJoin 链式操作,左联查询,例如 LeftJoin("project p", "p.project_id=o.project_id")
 func (db *Executor) LeftJoin(tableName string, condition string) *Executor {
-	db.JoinList = append(db.JoinList, "LEFT JOIN "+tableName+" ON "+condition)
+	db.joinList = append(db.joinList, "LEFT JOIN "+tableName+" ON "+condition)
 	return db
 }
 
 // RightJoin 链式操作,右联查询,例如 RightJoin("project p", "p.project_id=o.project_id")
 func (db *Executor) RightJoin(tableName string, condition string) *Executor {
-	db.JoinList = append(db.JoinList, "RIGHT JOIN "+tableName+" ON "+condition)
+	db.joinList = append(db.joinList, "RIGHT JOIN "+tableName+" ON "+condition)
 	return db
 }
 
 // Join 链式操作,内联查询,例如 Join("project p", "p.project_id=o.project_id")
 func (db *Executor) Join(tableName string, condition string) *Executor {
-	db.JoinList = append(db.JoinList, "INNER JOIN "+tableName+" ON "+condition)
+	db.joinList = append(db.joinList, "INNER JOIN "+tableName+" ON "+condition)
 	return db
 }
 
@@ -620,8 +621,8 @@ func (db *Executor) Where(dest interface{}) *Executor {
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.TableName == "" {
-		db.TableName = reflectTableName(typeOf, valueOf)
+	if db.tableName == "" {
+		db.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
@@ -629,7 +630,7 @@ func (db *Executor) Where(dest interface{}) *Executor {
 		if isNotNull {
 			key := UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
-			db.WhereList = append(db.WhereList, WhereItem{Field: key, Opt: Eq, Val: val})
+			db.whereList = append(db.whereList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}
 	}
 
@@ -638,13 +639,130 @@ func (db *Executor) Where(dest interface{}) *Executor {
 
 // WhereArr 链式操作,以数组作为查询条件
 func (db *Executor) WhereArr(whereList []WhereItem) *Executor {
-	db.WhereList = append(db.WhereList, whereList...)
+	db.whereList = append(db.whereList, whereList...)
+	return db
+}
+
+func (db *Executor) WhereEq(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Eq,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereNe(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Ne,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereGt(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Gt,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereGe(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Ge,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereLt(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Lt,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereLe(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Le,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereIn(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   In,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereNotIn(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   NotIn,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereBetween(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Between,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereNotBetween(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   NotBetween,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereLike(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Like,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereNotLike(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   NotLike,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) WhereRaw(field string, val interface{}) *Executor {
+	db.whereList = append(db.whereList, WhereItem{
+		Field: field,
+		Opt:   Raw,
+		Val:   val,
+	})
 	return db
 }
 
 // GroupBy 链式操作,以某字段进行分组
 func (db *Executor) GroupBy(fieldName string) *Executor {
-	db.GroupList = append(db.GroupList, fieldName)
+	db.groupList = append(db.groupList, fieldName)
 	return db
 }
 
@@ -654,8 +772,8 @@ func (db *Executor) Having(dest interface{}) *Executor {
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.TableName == "" {
-		db.TableName = reflectTableName(typeOf, valueOf)
+	if db.tableName == "" {
+		db.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
@@ -663,7 +781,7 @@ func (db *Executor) Having(dest interface{}) *Executor {
 		if isNotNull {
 			key := UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
-			db.HavingList = append(db.HavingList, WhereItem{Field: key, Opt: Eq, Val: val})
+			db.havingList = append(db.havingList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}
 	}
 
@@ -672,33 +790,150 @@ func (db *Executor) Having(dest interface{}) *Executor {
 
 // HavingArr 链式操作,以数组作为筛选条件
 func (db *Executor) HavingArr(havingList []WhereItem) *Executor {
-	db.HavingList = havingList
+	db.havingList = append(db.havingList, havingList...)
+	return db
+}
+
+func (db *Executor) HavingEq(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Eq,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingNe(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Ne,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingGt(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Gt,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingGe(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Ge,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingLt(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Lt,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingLe(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Le,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingIn(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   In,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingNotIn(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   NotIn,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingBetween(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Between,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingNotBetween(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   NotBetween,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingLike(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Like,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingNotLike(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   NotLike,
+		Val:   val,
+	})
+	return db
+}
+
+func (db *Executor) HavingRaw(field string, val interface{}) *Executor {
+	db.havingList = append(db.havingList, WhereItem{
+		Field: field,
+		Opt:   Raw,
+		Val:   val,
+	})
 	return db
 }
 
 // OrderBy 链式操作,以某字段进行排序
 func (db *Executor) OrderBy(field string, orderType string) *Executor {
-	db.OrderList = append(db.OrderList, field+" "+orderType)
+	db.orderList = append(db.orderList, field+" "+orderType)
 	return db
 }
 
 // Limit 链式操作,分页
 func (db *Executor) Limit(offset int, pageSize int) *Executor {
-	db.Offset = offset
-	db.PageSize = pageSize
+	db.offset = offset
+	db.pageSize = pageSize
 	return db
 }
 
 // Page 链式操作,分页
 func (db *Executor) Page(pageNum int, pageSize int) *Executor {
-	db.Offset = (pageNum - 1) * pageSize
-	db.PageSize = pageSize
+	db.offset = (pageNum - 1) * pageSize
+	db.pageSize = pageSize
 	return db
 }
 
 // LockForUpdate 加锁
 func (db *Executor) LockForUpdate(isLockForUpdate bool) *Executor {
-	db.IsLockForUpdate = isLockForUpdate
+	db.isLockForUpdate = isLockForUpdate
 	return db
 }
 
@@ -710,8 +945,8 @@ func handleField(selectList []string, selectExpList []*ExpItem, paramList []any)
 
 	//处理子语句
 	for i := 0; i < len(selectExpList); i++ {
-		executor := *(*Executor)(unsafe.Pointer(selectExpList[i].Executor))
-		subSql, subParamList := executor.getSqlAndParams()
+		executor := *(selectExpList[i].Executor)
+		subSql, subParamList := executor.GetSqlAndParams()
 		selectList = append(selectList, "("+subSql+") AS "+selectExpList[i].FieldName)
 		paramList = append(paramList, subParamList...)
 	}
@@ -736,8 +971,8 @@ func (db *Executor) handleSet(dest interface{}, paramList []any) (string, []any)
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.TableName == "" {
-		db.TableName = reflectTableName(typeOf, valueOf)
+	if db.tableName == "" {
+		db.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	var keys []string
@@ -818,55 +1053,69 @@ func handleLockForUpdate(isLock bool) string {
 func whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
-		fmt.Println(reflect.TypeOf(where[i].Field))
+		if "**aorm.Executor" == reflect.TypeOf(where[i].Val).String() {
+			executor := *(**Executor)(unsafe.Pointer(reflect.ValueOf(where[i].Val).Pointer()))
+			subSql, subParams := executor.GetSqlAndParams()
 
-		if where[i].Opt == Eq || where[i].Opt == Ne || where[i].Opt == Gt || where[i].Opt == Ge || where[i].Opt == Lt || where[i].Opt == Le {
-			//如果是浮点数查询
-			switch where[i].Val.(type) {
-			case float32:
-				whereList = append(whereList, "CONCAT("+where[i].Field+",'') "+where[i].Opt+" "+"?")
-			case float64:
-				whereList = append(whereList, "CONCAT("+where[i].Field+",'') "+where[i].Opt+" "+"?")
-			default:
-				whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"?")
+			if where[i].Opt != Raw {
+				whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"("+subSql+")")
+				paramList = append(paramList, subParams...)
+			} else {
+
 			}
-
-			paramList = append(paramList, fmt.Sprintf("%v", where[i].Val))
-		}
-
-		if where[i].Opt == Between || where[i].Opt == NotBetween {
-			values := toAnyArr(where[i].Val)
-			whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"(?) AND (?)")
-			paramList = append(paramList, values...)
-		}
-
-		if where[i].Opt == Like || where[i].Opt == NotLike {
-			values := toAnyArr(where[i].Val)
-			var valueStr []string
-			for j := 0; j < len(values); j++ {
-				str := fmt.Sprintf("%v", values[j])
-
-				if "%" != str {
-					//values[j] = "?"
-					paramList = append(paramList, str)
-					valueStr = append(valueStr, "?")
-				} else {
-					valueStr = append(valueStr, "'"+str+"'")
+		} else {
+			if where[i].Opt == Eq || where[i].Opt == Ne || where[i].Opt == Gt || where[i].Opt == Ge || where[i].Opt == Lt || where[i].Opt == Le {
+				//如果是浮点数查询
+				switch where[i].Val.(type) {
+				case float32:
+					whereList = append(whereList, "CONCAT("+where[i].Field+",'') "+where[i].Opt+" "+"?")
+				case float64:
+					whereList = append(whereList, "CONCAT("+where[i].Field+",'') "+where[i].Opt+" "+"?")
+				default:
+					whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"?")
 				}
+
+				paramList = append(paramList, fmt.Sprintf("%v", where[i].Val))
 			}
 
-			whereList = append(whereList, where[i].Field+" "+where[i].Opt+" concat("+strings.Join(valueStr, ",")+")")
-		}
-
-		if where[i].Opt == In || where[i].Opt == NotIn {
-			values := toAnyArr(where[i].Val)
-			var placeholder []string
-			for j := 0; j < len(values); j++ {
-				placeholder = append(placeholder, "?")
+			if where[i].Opt == Between || where[i].Opt == NotBetween {
+				values := toAnyArr(where[i].Val)
+				whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"(?) AND (?)")
+				paramList = append(paramList, values...)
 			}
 
-			whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"("+strings.Join(placeholder, ",")+")")
-			paramList = append(paramList, values...)
+			if where[i].Opt == Like || where[i].Opt == NotLike {
+				values := toAnyArr(where[i].Val)
+				var valueStr []string
+				for j := 0; j < len(values); j++ {
+					str := fmt.Sprintf("%v", values[j])
+
+					if "%" != str {
+						//values[j] = "?"
+						paramList = append(paramList, str)
+						valueStr = append(valueStr, "?")
+					} else {
+						valueStr = append(valueStr, "'"+str+"'")
+					}
+				}
+
+				whereList = append(whereList, where[i].Field+" "+where[i].Opt+" concat("+strings.Join(valueStr, ",")+")")
+			}
+
+			if where[i].Opt == In || where[i].Opt == NotIn {
+				values := toAnyArr(where[i].Val)
+				var placeholder []string
+				for j := 0; j < len(values); j++ {
+					placeholder = append(placeholder, "?")
+				}
+
+				whereList = append(whereList, where[i].Field+" "+where[i].Opt+" "+"("+strings.Join(placeholder, ",")+")")
+				paramList = append(paramList, values...)
+			}
+
+			if where[i].Opt == Raw {
+				whereList = append(whereList, where[i].Field+fmt.Sprintf("%v", where[i].Val))
+			}
 		}
 	}
 

@@ -41,7 +41,7 @@ func (db *Executor) Opinion(key string, val string) *Executor {
 		val = "'" + val + "'"
 	}
 
-	db.OpinionList = append(db.OpinionList, OpinionItem{Key: key, Val: val})
+	db.opinionList = append(db.opinionList, OpinionItem{Key: key, Val: val})
 
 	return db
 }
@@ -316,8 +316,8 @@ func (db *Executor) createTable(tableFromCode Table, columnsFromCode []Column, i
 
 //
 func (db *Executor) getValFromOpinion(key string, def string) string {
-	for i := 0; i < len(db.OpinionList); i++ {
-		opinionItem := db.OpinionList[i]
+	for i := 0; i < len(db.opinionList); i++ {
+		opinionItem := db.opinionList[i]
 		if opinionItem.Key == key {
 			def = opinionItem.Val
 		}

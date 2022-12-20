@@ -2,7 +2,6 @@ package test
 
 import (
 	"database/sql"
-	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/tangpanqing/aorm"
 	"testing"
@@ -20,7 +19,7 @@ type ArticleVO struct {
 	Id          aorm.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
 	Type        aorm.Int    `aorm:"index;comment:类型" json:"type"`
 	PersonId    aorm.Int    `aorm:"comment:人员Id" json:"personId"`
-	PersonName  aorm.Int    `aorm:"comment:人员名称" json:"personName"`
+	PersonName  aorm.String `aorm:"comment:人员名称" json:"personName"`
 	ArticleBody aorm.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
 }
 
@@ -38,6 +37,18 @@ type Person struct {
 type PersonAge struct {
 	Age      aorm.Int
 	AgeCount aorm.Int
+}
+
+type PersonWithArticleCount struct {
+	Id           aorm.Int    `aorm:"primary;auto_increment" json:"id"`
+	Name         aorm.String `aorm:"size:100;not null;comment:名字" json:"name"`
+	Sex          aorm.Bool   `aorm:"index;comment:性别" json:"sex"`
+	Age          aorm.Int    `aorm:"index;comment:年龄" json:"age"`
+	Type         aorm.Int    `aorm:"index;comment:类型" json:"type"`
+	CreateTime   aorm.Time   `aorm:"comment:创建时间" json:"createTime"`
+	Money        aorm.Float  `aorm:"comment:金额" json:"money"`
+	Test         aorm.Float  `aorm:"type:double;comment:测试" json:"test"`
+	ArticleCount aorm.Int    `aorm:"comment:文章数量" json:"articleCount"`
 }
 
 func TestAll(t *testing.T) {
@@ -60,6 +71,8 @@ func TestAll(t *testing.T) {
 	id2 := testInsert(name, db)
 	testTable(name, db)
 	testSelect(name, db)
+	testSelectWithSub(name, db)
+	testWhereWithSub(name, db)
 	testWhere(name, db)
 	testJoin(name, db)
 	testGroupBy(name, db)
@@ -90,8 +103,6 @@ func TestAll(t *testing.T) {
 }
 
 func testConnect() *sql.DB {
-	fmt.Println("--- testConnect ---")
-
 	//replace this database param
 	username := "root"
 	password := "root"
@@ -116,7 +127,6 @@ func testConnect() *sql.DB {
 }
 
 func testMigrate(name string, db *sql.DB) {
-	fmt.Println("--- testMigrate ---")
 
 	//AutoMigrate
 	aorm.Use(db).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
@@ -127,10 +137,7 @@ func testMigrate(name string, db *sql.DB) {
 }
 
 func testShowCreateTable(name string, db *sql.DB) {
-	fmt.Println("--- testShowCreateTable ---")
-
-	showCreate := aorm.Use(db).ShowCreateTable("person")
-	fmt.Println(showCreate)
+	aorm.Use(db).ShowCreateTable("person")
 }
 
 func testInsert(name string, db *sql.DB) int64 {
@@ -147,6 +154,12 @@ func testInsert(name string, db *sql.DB) int64 {
 	if errInsert != nil {
 		panic(name + "testInsert" + "found err")
 	}
+
+	aorm.Use(db).Debug(false).Insert(&Article{
+		Type:        aorm.IntFrom(0),
+		PersonId:    aorm.IntFrom(id),
+		ArticleBody: aorm.StringFrom("文章内容"),
+	})
 
 	return id
 }
@@ -182,8 +195,6 @@ func testInsertBatch(name string, db *sql.DB) int64 {
 }
 
 func testGetOne(name string, db *sql.DB, id int64) {
-	fmt.Println("--- testGetOne ---")
-
 	var person Person
 	errFind := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).GetOne(&person)
 	if errFind != nil {
@@ -222,23 +233,39 @@ func testTable(name string, db *sql.DB) {
 
 func testSelect(name string, db *sql.DB) {
 	var listByFiled []Person
-	aorm.Use(db).Debug(false).Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
+	err := aorm.Use(db).Debug(false).Select("name,age").Where(&Person{Age: aorm.IntFrom(18)}).GetMany(&listByFiled)
+	if err != nil {
+		panic(name + " testSelect " + "found err:" + err.Error())
+	}
+}
 
-	sub := aorm.Start().Table("test_table").SelectCount("test_name", "test_name_count")
-	sub2 := aorm.Start().Table("test_table").Select("id")
-	var where []aorm.WhereItem
-	where = append(where, aorm.WhereItem{Field: "test_field", Opt: aorm.In, Val: sub2})
+func testSelectWithSub(name string, db *sql.DB) {
+	var listByFiled []PersonWithArticleCount
 
-	err := aorm.Use(db).Debug(true).
-		SelectExp(&sub, "test_name_count_new").
-		SelectExp(&sub2, "test_name_count_new_2").
-		Select("name", "age").
+	sub := aorm.Sub().Table("article").SelectCount("id", "article_count_tem").WhereRaw("person_id", "=person.id")
+	err := aorm.Use(db).Debug(false).
+		SelectExp(&sub, "article_count").
+		Select("*").
 		Where(&Person{Age: aorm.IntFrom(18)}).
-		WhereArr(where).
 		GetMany(&listByFiled)
 
 	if err != nil {
-		panic(name + " testSelect " + "found err:" + err.Error())
+		panic(name + " testSelectWithSub " + "found err:" + err.Error())
+	}
+}
+
+func testWhereWithSub(name string, db *sql.DB) {
+	var listByFiled []Person
+
+	sub := aorm.Sub().Table("article").Select("person_id").GroupBy("person_id").HavingGt("count(person_id)", 0)
+
+	err := aorm.Use(db).Debug(false).
+		Table("person").
+		WhereIn("id", &sub).
+		GetMany(&listByFiled)
+
+	if err != nil {
+		panic(name + " testWhereWithSub " + "found err:" + err.Error())
 	}
 }
 
@@ -271,7 +298,7 @@ func testJoin(name string, db *sql.DB) {
 		WhereArr(where2).
 		GetMany(&list2)
 	if err != nil {
-		panic(name + "testWhere" + "found err")
+		panic(name + " testWhere " + "found err " + err.Error())
 	}
 }
 
@@ -377,7 +404,6 @@ func testDecrement(name string, db *sql.DB, id int64) {
 }
 
 func testValue(dbName string, db *sql.DB, id int64) {
-	fmt.Println("--- testValue ---")
 
 	var name string
 	errName := aorm.Use(db).Debug(false).Where(&Person{Id: aorm.IntFrom(id)}).Value("name", &name)
