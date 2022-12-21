@@ -44,51 +44,8 @@ type ExpItem struct {
 	FieldName string
 }
 
-type Link struct {
-	driverName string
-	dblink     *sql.DB
-}
-
-func (l Link) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return l.dblink.Exec(query, args...)
-}
-
-func (l Link) Prepare(query string) (*sql.Stmt, error) {
-	return l.dblink.Prepare(query)
-}
-
-func (l Link) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	return l.dblink.Query(query, args...)
-}
-
-func (l Link) QueryRow(query string, args ...interface{}) *sql.Row {
-	return l.dblink.QueryRow(query, args...)
-}
-
-func (l Link) getDriverName() string {
-	return l.driverName
-}
-
-// Open 创建数据库连接
-func Open(driverName, dataSourceName string) (*Link, error) {
-	db, err := sql.Open(driverName, dataSourceName)
-
-	return &Link{
-		driverName: driverName,
-		dblink:     db,
-	}, err
-}
-
 // Use 使用数据库连接，或者事务
 func Use(linkCommon LinkCommon) *Executor {
-	executor := &Executor{
-		linkCommon: linkCommon,
-	}
-
-	return executor
-}
-
-func UseNew(linkCommon LinkCommon) *Executor {
 	executor := &Executor{
 		linkCommon: linkCommon,
 	}
