@@ -1,9 +1,11 @@
-package aorm
+package executor
 
 import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/tangpanqing/aorm"
+	"github.com/tangpanqing/aorm/null"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -35,21 +37,21 @@ type WhereItem struct {
 }
 
 type IntStruct struct {
-	C Int
+	C null.Int
 }
 
 type FloatStruct struct {
-	C Float
+	C null.Float
 }
 
 // Insert 增加记录
-func (db *Executor) Insert(dest interface{}) (int64, error) {
+func (ex *Executor) Insert(dest interface{}) (int64, error) {
 	typeOf := reflect.TypeOf(dest)
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.tableName == "" {
-		db.tableName = reflectTableName(typeOf, valueOf)
+	if ex.tableName == "" {
+		ex.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	var keys []string
@@ -58,7 +60,7 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := UnderLine(typeOf.Elem().Field(i).Name)
+			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 			keys = append(keys, key)
 			paramList = append(paramList, val)
@@ -66,9 +68,9 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 		}
 	}
 
-	sqlStr := "INSERT INTO " + db.tableName + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
+	sqlStr := "INSERT INTO " + ex.tableName + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
 
-	res, err := db.Exec(sqlStr, paramList...)
+	res, err := ex.Exec(sqlStr, paramList...)
 	if err != nil {
 		return 0, err
 	}
@@ -82,7 +84,7 @@ func (db *Executor) Insert(dest interface{}) (int64, error) {
 }
 
 // InsertBatch 批量增加记录
-func (db *Executor) InsertBatch(values interface{}) (int64, error) {
+func (ex *Executor) InsertBatch(values interface{}) (int64, error) {
 
 	var keys []string
 	var paramList []any
@@ -95,8 +97,8 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 	typeOf := reflect.TypeOf(values).Elem().Elem()
 
 	//如果没有设置表名
-	if db.tableName == "" {
-		db.tableName = reflectTableName(typeOf, valueOf.Index(0))
+	if ex.tableName == "" {
+		ex.tableName = reflectTableName(typeOf, valueOf.Index(0))
 	}
 
 	for j := 0; j < valueOf.Len(); j++ {
@@ -106,7 +108,7 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 			isNotNull := valueOf.Index(j).Field(i).Field(0).Field(1).Bool()
 			if isNotNull {
 				if j == 0 {
-					key := UnderLine(typeOf.Field(i).Name)
+					key := aorm.UnderLine(typeOf.Field(i).Name)
 					keys = append(keys, key)
 				}
 
@@ -119,9 +121,9 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 		place = append(place, "("+strings.Join(placeItem, ",")+")")
 	}
 
-	sqlStr := "INSERT INTO " + db.tableName + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
+	sqlStr := "INSERT INTO " + ex.tableName + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
 
-	res, err := db.Exec(sqlStr, paramList...)
+	res, err := ex.Exec(sqlStr, paramList...)
 	if err != nil {
 		return 0, err
 	}
@@ -135,10 +137,10 @@ func (db *Executor) InsertBatch(values interface{}) (int64, error) {
 }
 
 // GetRows 获取行操作
-func (db *Executor) GetRows() (*sql.Rows, error) {
-	sqlStr, paramList := db.GetSqlAndParams()
+func (ex *Executor) GetRows() (*sql.Rows, error) {
+	sqlStr, paramList := ex.GetSqlAndParams()
 
-	smt, errSmt := db.linkCommon.Prepare(sqlStr)
+	smt, errSmt := ex.LinkCommon.Prepare(sqlStr)
 	if errSmt != nil {
 		return nil, errSmt
 	}
@@ -153,8 +155,8 @@ func (db *Executor) GetRows() (*sql.Rows, error) {
 }
 
 // GetMany 查询记录(新)
-func (db *Executor) GetMany(values interface{}) error {
-	rows, errRows := db.GetRows()
+func (ex *Executor) GetMany(values interface{}) error {
+	rows, errRows := ex.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -188,10 +190,10 @@ func (db *Executor) GetMany(values interface{}) error {
 }
 
 // GetOne 查询某一条记录
-func (db *Executor) GetOne(obj interface{}) error {
-	db.Limit(0, 1)
+func (ex *Executor) GetOne(obj interface{}) error {
+	ex.Limit(0, 1)
 
-	rows, errRows := db.GetRows()
+	rows, errRows := ex.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -221,31 +223,31 @@ func (db *Executor) GetOne(obj interface{}) error {
 }
 
 // RawSql 执行原始的sql语句
-func (db *Executor) RawSql(sql string, paramList ...interface{}) *Executor {
-	db.sql = sql
-	db.paramList = paramList
-	return db
+func (ex *Executor) RawSql(sql string, paramList ...interface{}) *Executor {
+	ex.sql = sql
+	ex.paramList = paramList
+	return ex
 }
 
-func (db *Executor) GetSqlAndParams() (string, []interface{}) {
-	if db.sql != "" {
-		return db.sql, db.paramList
+func (ex *Executor) GetSqlAndParams() (string, []interface{}) {
+	if ex.sql != "" {
+		return ex.sql, ex.paramList
 	}
 
 	var paramList []interface{}
 
-	fieldStr, paramList := handleField(db.selectList, db.selectExpList, paramList)
-	whereStr, paramList := handleWhere(db.whereList, paramList)
-	joinStr := handleJoin(db.joinList)
-	groupStr := handleGroup(db.groupList)
-	havingStr, paramList := handleHaving(db.havingList, paramList)
-	orderStr := handleOrder(db.orderList)
-	limitStr, paramList := handleLimit(db.offset, db.pageSize, paramList)
-	lockStr := handleLockForUpdate(db.isLockForUpdate)
+	fieldStr, paramList := handleField(ex.selectList, ex.selectExpList, paramList)
+	whereStr, paramList := handleWhere(ex.whereList, paramList)
+	joinStr := handleJoin(ex.joinList)
+	groupStr := handleGroup(ex.groupList)
+	havingStr, paramList := handleHaving(ex.havingList, paramList)
+	orderStr := handleOrder(ex.orderList)
+	limitStr, paramList := handleLimit(ex.offset, ex.pageSize, paramList)
+	lockStr := handleLockForUpdate(ex.isLockForUpdate)
 
-	sqlStr := "SELECT " + fieldStr + " FROM " + db.tableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
+	sqlStr := "SELECT " + fieldStr + " FROM " + ex.tableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
 
-	if db.isDebug {
+	if ex.isDebug {
 		fmt.Println(sqlStr)
 		fmt.Println(paramList...)
 	}
@@ -254,35 +256,35 @@ func (db *Executor) GetSqlAndParams() (string, []interface{}) {
 }
 
 // Update 更新记录
-func (db *Executor) Update(dest interface{}) (int64, error) {
+func (ex *Executor) Update(dest interface{}) (int64, error) {
 	var paramList []any
-	setStr, paramList := db.handleSet(dest, paramList)
-	whereStr, paramList := handleWhere(db.whereList, paramList)
-	sqlStr := "UPDATE " + db.tableName + setStr + whereStr
+	setStr, paramList := ex.handleSet(dest, paramList)
+	whereStr, paramList := handleWhere(ex.whereList, paramList)
+	sqlStr := "UPDATE " + ex.tableName + setStr + whereStr
 
-	return db.ExecAffected(sqlStr, paramList...)
+	return ex.ExecAffected(sqlStr, paramList...)
 }
 
 // Delete 删除记录
-func (db *Executor) Delete() (int64, error) {
+func (ex *Executor) Delete() (int64, error) {
 	var paramList []any
-	whereStr, paramList := handleWhere(db.whereList, paramList)
-	sqlStr := "DELETE FROM " + db.tableName + whereStr
+	whereStr, paramList := handleWhere(ex.whereList, paramList)
+	sqlStr := "DELETE FROM " + ex.tableName + whereStr
 
-	return db.ExecAffected(sqlStr, paramList...)
+	return ex.ExecAffected(sqlStr, paramList...)
 }
 
 // Truncate 清空记录
-func (db *Executor) Truncate() (int64, error) {
-	sqlStr := "TRUNCATE TABLE  " + db.tableName
+func (ex *Executor) Truncate() (int64, error) {
+	sqlStr := "TRUNCATE TABLE  " + ex.tableName
 
-	return db.ExecAffected(sqlStr)
+	return ex.ExecAffected(sqlStr)
 }
 
 // Count 聚合函数-数量
-func (db *Executor) Count(fieldName string) (int64, error) {
+func (ex *Executor) Count(fieldName string) (int64, error) {
 	var obj []IntStruct
-	err := db.Select("count(" + fieldName + ") as c").GetMany(&obj)
+	err := ex.Select("count(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0, err
 	}
@@ -291,9 +293,9 @@ func (db *Executor) Count(fieldName string) (int64, error) {
 }
 
 // Sum 聚合函数-合计
-func (db *Executor) Sum(fieldName string) (float64, error) {
+func (ex *Executor) Sum(fieldName string) (float64, error) {
 	var obj []FloatStruct
-	err := db.Select("sum(" + fieldName + ") as c").GetMany(&obj)
+	err := ex.Select("sum(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0, err
 	}
@@ -302,9 +304,9 @@ func (db *Executor) Sum(fieldName string) (float64, error) {
 }
 
 // Avg 聚合函数-平均值
-func (db *Executor) Avg(fieldName string) (float64, error) {
+func (ex *Executor) Avg(fieldName string) (float64, error) {
 	var obj []FloatStruct
-	err := db.Select("avg(" + fieldName + ") as c").GetMany(&obj)
+	err := ex.Select("avg(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0, err
 	}
@@ -313,9 +315,9 @@ func (db *Executor) Avg(fieldName string) (float64, error) {
 }
 
 // Max 聚合函数-最大值
-func (db *Executor) Max(fieldName string) (float64, error) {
+func (ex *Executor) Max(fieldName string) (float64, error) {
 	var obj []FloatStruct
-	err := db.Select("max(" + fieldName + ") as c").GetMany(&obj)
+	err := ex.Select("max(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0, err
 	}
@@ -324,9 +326,9 @@ func (db *Executor) Max(fieldName string) (float64, error) {
 }
 
 // Min 聚合函数-最小值
-func (db *Executor) Min(fieldName string) (float64, error) {
+func (ex *Executor) Min(fieldName string) (float64, error) {
 	var obj []FloatStruct
-	err := db.Select("min(" + fieldName + ") as c").GetMany(&obj)
+	err := ex.Select("min(" + fieldName + ") as c").GetMany(&obj)
 	if err != nil {
 		return 0, err
 	}
@@ -335,10 +337,10 @@ func (db *Executor) Min(fieldName string) (float64, error) {
 }
 
 // Value 字段值
-func (db *Executor) Value(fieldName string, dest interface{}) error {
-	db.Select(fieldName).Limit(0, 1)
+func (ex *Executor) Value(fieldName string, dest interface{}) error {
+	ex.Select(fieldName).Limit(0, 1)
 
-	rows, errRows := db.GetRows()
+	rows, errRows := ex.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -373,10 +375,10 @@ func (db *Executor) Value(fieldName string, dest interface{}) error {
 }
 
 // Pluck 获取某一列的值
-func (db *Executor) Pluck(fieldName string, values interface{}) error {
-	db.Select(fieldName)
+func (ex *Executor) Pluck(fieldName string, values interface{}) error {
+	ex.Select(fieldName)
 
-	rows, errRows := db.GetRows()
+	rows, errRows := ex.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -415,33 +417,33 @@ func (db *Executor) Pluck(fieldName string, values interface{}) error {
 }
 
 // Increment 某字段自增
-func (db *Executor) Increment(fieldName string, step int) (int64, error) {
+func (ex *Executor) Increment(fieldName string, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := handleWhere(db.whereList, paramList)
-	sqlStr := "UPDATE " + db.tableName + " SET " + fieldName + "=" + fieldName + "+?" + whereStr
+	whereStr, paramList := handleWhere(ex.whereList, paramList)
+	sqlStr := "UPDATE " + ex.tableName + " SET " + fieldName + "=" + fieldName + "+?" + whereStr
 
-	return db.ExecAffected(sqlStr, paramList...)
+	return ex.ExecAffected(sqlStr, paramList...)
 }
 
 // Decrement 某字段自减
-func (db *Executor) Decrement(fieldName string, step int) (int64, error) {
+func (ex *Executor) Decrement(fieldName string, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := handleWhere(db.whereList, paramList)
-	sqlStr := "UPDATE " + db.tableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
+	whereStr, paramList := handleWhere(ex.whereList, paramList)
+	sqlStr := "UPDATE " + ex.tableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
 
-	return db.ExecAffected(sqlStr, paramList...)
+	return ex.ExecAffected(sqlStr, paramList...)
 }
 
 // Exec 通用执行-新增,更新,删除
-func (db *Executor) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
-	if db.isDebug {
+func (ex *Executor) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
+	if ex.isDebug {
 		fmt.Println(sqlStr)
 		fmt.Println(args...)
 	}
 
-	smt, err1 := db.linkCommon.Prepare(sqlStr)
+	smt, err1 := ex.LinkCommon.Prepare(sqlStr)
 	if err1 != nil {
 		return nil, err1
 	}
@@ -452,13 +454,13 @@ func (db *Executor) Exec(sqlStr string, args ...interface{}) (sql.Result, error)
 		return nil, err2
 	}
 
-	db.clear()
+	//ex.clear()
 	return res, nil
 }
 
 // ExecAffected 通用执行-更新,删除
-func (db *Executor) ExecAffected(sqlStr string, args ...interface{}) (int64, error) {
-	res, err := db.Exec(sqlStr, args...)
+func (ex *Executor) ExecAffected(sqlStr string, args ...interface{}) (int64, error) {
+	res, err := ex.Exec(sqlStr, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -472,400 +474,400 @@ func (db *Executor) ExecAffected(sqlStr string, args ...interface{}) (int64, err
 }
 
 // Debug 链式操作-是否开启调试,打印sql
-func (db *Executor) Debug(isDebug bool) *Executor {
-	db.isDebug = isDebug
-	return db
+func (ex *Executor) Debug(isDebug bool) *Executor {
+	ex.isDebug = isDebug
+	return ex
 }
 
 // Select 链式操作-查询哪些字段,默认 *
-func (db *Executor) Select(fields ...string) *Executor {
-	db.selectList = append(db.selectList, fields...)
-	return db
+func (ex *Executor) Select(fields ...string) *Executor {
+	ex.selectList = append(ex.selectList, fields...)
+	return ex
 }
 
 // SelectCount 链式操作-count(field) as field_new
-func (db *Executor) SelectCount(field string, fieldNew string) *Executor {
-	db.selectList = append(db.selectList, "count("+field+") AS "+fieldNew)
-	return db
+func (ex *Executor) SelectCount(field string, fieldNew string) *Executor {
+	ex.selectList = append(ex.selectList, "count("+field+") AS "+fieldNew)
+	return ex
 }
 
 // SelectSum 链式操作-sum(field) as field_new
-func (db *Executor) SelectSum(field string, fieldNew string) *Executor {
-	db.selectList = append(db.selectList, "sum("+field+") AS "+fieldNew)
-	return db
+func (ex *Executor) SelectSum(field string, fieldNew string) *Executor {
+	ex.selectList = append(ex.selectList, "sum("+field+") AS "+fieldNew)
+	return ex
 }
 
 // SelectMin 链式操作-min(field) as field_new
-func (db *Executor) SelectMin(field string, fieldNew string) *Executor {
-	db.selectList = append(db.selectList, "min("+field+") AS "+fieldNew)
-	return db
+func (ex *Executor) SelectMin(field string, fieldNew string) *Executor {
+	ex.selectList = append(ex.selectList, "min("+field+") AS "+fieldNew)
+	return ex
 }
 
 // SelectMax 链式操作-max(field) as field_new
-func (db *Executor) SelectMax(field string, fieldNew string) *Executor {
-	db.selectList = append(db.selectList, "max("+field+") AS "+fieldNew)
-	return db
+func (ex *Executor) SelectMax(field string, fieldNew string) *Executor {
+	ex.selectList = append(ex.selectList, "max("+field+") AS "+fieldNew)
+	return ex
 }
 
 // SelectAvg 链式操作-avg(field) as field_new
-func (db *Executor) SelectAvg(field string, fieldNew string) *Executor {
-	db.selectList = append(db.selectList, "avg("+field+") AS "+fieldNew)
-	return db
+func (ex *Executor) SelectAvg(field string, fieldNew string) *Executor {
+	ex.selectList = append(ex.selectList, "avg("+field+") AS "+fieldNew)
+	return ex
 }
 
 // SelectExp 链式操作-表达式
-func (db *Executor) SelectExp(dbSub **Executor, fieldName string) *Executor {
-	db.selectExpList = append(db.selectExpList, &ExpItem{
+func (ex *Executor) SelectExp(dbSub **Executor, fieldName string) *Executor {
+	ex.selectExpList = append(ex.selectExpList, &ExpItem{
 		Executor:  dbSub,
 		FieldName: fieldName,
 	})
-	return db
+	return ex
 }
 
 // Table 链式操作-从哪个表查询,允许直接写别名,例如 person p
-func (db *Executor) Table(tableName string) *Executor {
-	db.tableName = tableName
-	return db
+func (ex *Executor) Table(tableName string) *Executor {
+	ex.tableName = tableName
+	return ex
 }
 
 // LeftJoin 链式操作,左联查询,例如 LeftJoin("project p", "p.project_id=o.project_id")
-func (db *Executor) LeftJoin(tableName string, condition string) *Executor {
-	db.joinList = append(db.joinList, "LEFT JOIN "+tableName+" ON "+condition)
-	return db
+func (ex *Executor) LeftJoin(tableName string, condition string) *Executor {
+	ex.joinList = append(ex.joinList, "LEFT JOIN "+tableName+" ON "+condition)
+	return ex
 }
 
 // RightJoin 链式操作,右联查询,例如 RightJoin("project p", "p.project_id=o.project_id")
-func (db *Executor) RightJoin(tableName string, condition string) *Executor {
-	db.joinList = append(db.joinList, "RIGHT JOIN "+tableName+" ON "+condition)
-	return db
+func (ex *Executor) RightJoin(tableName string, condition string) *Executor {
+	ex.joinList = append(ex.joinList, "RIGHT JOIN "+tableName+" ON "+condition)
+	return ex
 }
 
 // Join 链式操作,内联查询,例如 Join("project p", "p.project_id=o.project_id")
-func (db *Executor) Join(tableName string, condition string) *Executor {
-	db.joinList = append(db.joinList, "INNER JOIN "+tableName+" ON "+condition)
-	return db
+func (ex *Executor) Join(tableName string, condition string) *Executor {
+	ex.joinList = append(ex.joinList, "INNER JOIN "+tableName+" ON "+condition)
+	return ex
 }
 
 // Where 链式操作,以对象作为查询条件
-func (db *Executor) Where(dest interface{}) *Executor {
+func (ex *Executor) Where(dest interface{}) *Executor {
 	typeOf := reflect.TypeOf(dest)
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.tableName == "" {
-		db.tableName = reflectTableName(typeOf, valueOf)
+	if ex.tableName == "" {
+		ex.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := UnderLine(typeOf.Elem().Field(i).Name)
+			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
-			db.whereList = append(db.whereList, WhereItem{Field: key, Opt: Eq, Val: val})
+			ex.whereList = append(ex.whereList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}
 	}
 
-	return db
+	return ex
 }
 
 // WhereArr 链式操作,以数组作为查询条件
-func (db *Executor) WhereArr(whereList []WhereItem) *Executor {
-	db.whereList = append(db.whereList, whereList...)
-	return db
+func (ex *Executor) WhereArr(whereList []WhereItem) *Executor {
+	ex.whereList = append(ex.whereList, whereList...)
+	return ex
 }
 
-func (db *Executor) WhereEq(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereEq(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Eq,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereNe(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereNe(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Ne,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereGt(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereGt(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Gt,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereGe(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereGe(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Ge,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereLt(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereLt(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Lt,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereLe(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereLe(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Le,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereIn(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereIn(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   In,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereNotIn(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereNotIn(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   NotIn,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereBetween(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereBetween(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Between,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereNotBetween(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereNotBetween(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   NotBetween,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereLike(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereLike(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Like,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereNotLike(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereNotLike(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   NotLike,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) WhereRaw(field string, val interface{}) *Executor {
-	db.whereList = append(db.whereList, WhereItem{
+func (ex *Executor) WhereRaw(field string, val interface{}) *Executor {
+	ex.whereList = append(ex.whereList, WhereItem{
 		Field: field,
 		Opt:   Raw,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
 // GroupBy 链式操作,以某字段进行分组
-func (db *Executor) GroupBy(fieldName string) *Executor {
-	db.groupList = append(db.groupList, fieldName)
-	return db
+func (ex *Executor) GroupBy(fieldName string) *Executor {
+	ex.groupList = append(ex.groupList, fieldName)
+	return ex
 }
 
 // Having 链式操作,以对象作为筛选条件
-func (db *Executor) Having(dest interface{}) *Executor {
+func (ex *Executor) Having(dest interface{}) *Executor {
 	typeOf := reflect.TypeOf(dest)
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.tableName == "" {
-		db.tableName = reflectTableName(typeOf, valueOf)
+	if ex.tableName == "" {
+		ex.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := UnderLine(typeOf.Elem().Field(i).Name)
+			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
-			db.havingList = append(db.havingList, WhereItem{Field: key, Opt: Eq, Val: val})
+			ex.havingList = append(ex.havingList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}
 	}
 
-	return db
+	return ex
 }
 
 // HavingArr 链式操作,以数组作为筛选条件
-func (db *Executor) HavingArr(havingList []WhereItem) *Executor {
-	db.havingList = append(db.havingList, havingList...)
-	return db
+func (ex *Executor) HavingArr(havingList []WhereItem) *Executor {
+	ex.havingList = append(ex.havingList, havingList...)
+	return ex
 }
 
-func (db *Executor) HavingEq(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingEq(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Eq,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingNe(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingNe(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Ne,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingGt(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingGt(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Gt,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingGe(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingGe(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Ge,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingLt(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingLt(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Lt,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingLe(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingLe(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Le,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingIn(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingIn(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   In,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingNotIn(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingNotIn(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   NotIn,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingBetween(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingBetween(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Between,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingNotBetween(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingNotBetween(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   NotBetween,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingLike(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingLike(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Like,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingNotLike(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingNotLike(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   NotLike,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
-func (db *Executor) HavingRaw(field string, val interface{}) *Executor {
-	db.havingList = append(db.havingList, WhereItem{
+func (ex *Executor) HavingRaw(field string, val interface{}) *Executor {
+	ex.havingList = append(ex.havingList, WhereItem{
 		Field: field,
 		Opt:   Raw,
 		Val:   val,
 	})
-	return db
+	return ex
 }
 
 // OrderBy 链式操作,以某字段进行排序
-func (db *Executor) OrderBy(field string, orderType string) *Executor {
-	db.orderList = append(db.orderList, field+" "+orderType)
-	return db
+func (ex *Executor) OrderBy(field string, orderType string) *Executor {
+	ex.orderList = append(ex.orderList, field+" "+orderType)
+	return ex
 }
 
 // Limit 链式操作,分页
-func (db *Executor) Limit(offset int, pageSize int) *Executor {
-	db.offset = offset
-	db.pageSize = pageSize
-	return db
+func (ex *Executor) Limit(offset int, pageSize int) *Executor {
+	ex.offset = offset
+	ex.pageSize = pageSize
+	return ex
 }
 
 // Page 链式操作,分页
-func (db *Executor) Page(pageNum int, pageSize int) *Executor {
-	db.offset = (pageNum - 1) * pageSize
-	db.pageSize = pageSize
-	return db
+func (ex *Executor) Page(pageNum int, pageSize int) *Executor {
+	ex.offset = (pageNum - 1) * pageSize
+	ex.pageSize = pageSize
+	return ex
 }
 
 // LockForUpdate 加锁
-func (db *Executor) LockForUpdate(isLockForUpdate bool) *Executor {
-	db.isLockForUpdate = isLockForUpdate
-	return db
+func (ex *Executor) LockForUpdate(isLockForUpdate bool) *Executor {
+	ex.isLockForUpdate = isLockForUpdate
+	return ex
 }
 
 //拼接SQL,字段相关
@@ -897,20 +899,20 @@ func handleWhere(where []WhereItem, paramList []any) (string, []any) {
 }
 
 //拼接SQL,更新信息
-func (db *Executor) handleSet(dest interface{}, paramList []any) (string, []any) {
+func (ex *Executor) handleSet(dest interface{}, paramList []any) (string, []any) {
 	typeOf := reflect.TypeOf(dest)
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if db.tableName == "" {
-		db.tableName = reflectTableName(typeOf, valueOf)
+	if ex.tableName == "" {
+		ex.tableName = reflectTableName(typeOf, valueOf)
 	}
 
 	var keys []string
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := UnderLine(typeOf.Elem().Field(i).Name)
+			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 
 			keys = append(keys, key+"=?")
@@ -984,7 +986,7 @@ func handleLockForUpdate(isLock bool) string {
 func whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
-		if "**aorm.Executor" == reflect.TypeOf(where[i].Val).String() {
+		if "**Executor" == reflect.TypeOf(where[i].Val).String() {
 			executor := *(**Executor)(unsafe.Pointer(reflect.ValueOf(where[i].Val).Pointer()))
 			subSql, subParams := executor.GetSqlAndParams()
 
@@ -1092,7 +1094,7 @@ func reflectTableName(typeOf reflect.Type, valueOf reflect.Value) string {
 		return res[0].String()
 	} else {
 		arr := strings.Split(typeOf.String(), ".")
-		return UnderLine(arr[len(arr)-1])
+		return aorm.UnderLine(arr[len(arr)-1])
 	}
 }
 
@@ -1108,7 +1110,7 @@ func getFieldNameMap(destValue reflect.Value, destType reflect.Type) map[string]
 func getScans(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
 	var scans []interface{}
 	for _, columnName := range columnNameList {
-		fieldName := CamelString(strings.ToLower(columnName))
+		fieldName := aorm.CamelString(strings.ToLower(columnName))
 		index, ok := fieldNameMap[fieldName]
 		if ok {
 			scans = append(scans, destValue.Field(index).Addr().Interface())

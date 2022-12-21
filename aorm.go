@@ -2,77 +2,64 @@ package aorm
 
 import (
 	"database/sql" //只需导入你需要的驱动即可
+	"github.com/tangpanqing/aorm/executor"
 )
 
-// LinkCommon database/sql提供的库连接与事务，二者有很多方法是一致的，为了通用，抽象为该interface
-type LinkCommon interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	Prepare(query string) (*sql.Stmt, error)
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
+// DbContent 数据库连接与数据库类型
+type DbContent struct {
+	DriverName string
+	DbLink     *sql.DB
 }
 
-// Executor 查询记录所需要的条件
-type Executor struct {
-	//数据库操作连接
-	linkCommon LinkCommon
+func Open(driverName string, dataSourceName string) (DbContent, error) {
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		return DbContent{}, err
+	}
 
-	//查询参数
-	tableName       string
-	selectList      []string
-	selectExpList   []*ExpItem
-	groupList       []string
-	whereList       []WhereItem
-	joinList        []string
-	havingList      []WhereItem
-	orderList       []string
-	offset          int
-	pageSize        int
-	isDebug         bool
-	isLockForUpdate bool
-
-	//sql与参数
-	sql       string
-	paramList []interface{}
-
-	//表属性
-	opinionList []OpinionItem
-}
-
-type ExpItem struct {
-	Executor  **Executor
-	FieldName string
+	return DbContent{
+		DriverName: driverName,
+		DbLink:     db,
+	}, nil
 }
 
 // Use 使用数据库连接，或者事务
-func Use(linkCommon LinkCommon) *Executor {
-	executor := &Executor{
-		linkCommon: linkCommon,
+func Use(linkCommon executor.LinkCommon) *executor.Executor {
+	executor := &executor.Executor{
+		LinkCommon: linkCommon,
+	}
+
+	return executor
+}
+
+func UseNew(dbContent DbContent) *executor.Executor {
+	executor := &executor.Executor{
+		LinkCommon: dbContent.DbLink,
 	}
 
 	return executor
 }
 
 // Sub 子查询
-func Sub() *Executor {
-	executor := &Executor{}
+func Sub() *executor.Executor {
+	executor := &executor.Executor{}
 	return executor
 }
 
 //清空查询条件,复用对象
-func (db *Executor) clear() {
-	db.tableName = ""
-	db.selectList = make([]string, 0)
-	db.groupList = make([]string, 0)
-	db.whereList = make([]WhereItem, 0)
-	db.joinList = make([]string, 0)
-	db.havingList = make([]WhereItem, 0)
-	db.orderList = make([]string, 0)
-	db.offset = 0
-	db.pageSize = 0
-	db.isDebug = false
-	db.isLockForUpdate = false
-	db.sql = ""
-	db.paramList = make([]interface{}, 0)
-	db.opinionList = make([]OpinionItem, 0)
-}
+//func (ex *executor.Executor) clear() {
+//	ex.tableName = ""
+//	ex.selectList = make([]string, 0)
+//	ex.groupList = make([]string, 0)
+//	ex.whereList = make([]executor.WhereItem, 0)
+//	ex.joinList = make([]string, 0)
+//	ex.havingList = make([]executor.WhereItem, 0)
+//	ex.orderList = make([]string, 0)
+//	ex.offset = 0
+//	ex.pageSize = 0
+//	ex.isDebug = false
+//	ex.isLockForUpdate = false
+//	ex.sql = ""
+//	ex.paramList = make([]interface{}, 0)
+//	ex.opinionList = make([]OpinionItem, 0)
+//}
