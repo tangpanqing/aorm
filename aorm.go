@@ -3,6 +3,8 @@ package aorm
 import (
 	"database/sql" //只需导入你需要的驱动即可
 	"github.com/tangpanqing/aorm/executor"
+	"github.com/tangpanqing/aorm/migrator"
+	"github.com/tangpanqing/aorm/model"
 )
 
 // DbContent 数据库连接与数据库类型
@@ -11,6 +13,7 @@ type DbContent struct {
 	DbLink     *sql.DB
 }
 
+//Open 开始一个数据库连接
 func Open(driverName string, dataSourceName string) (DbContent, error) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
@@ -23,18 +26,10 @@ func Open(driverName string, dataSourceName string) (DbContent, error) {
 	}, nil
 }
 
-// Use 使用数据库连接，或者事务
-func Use(linkCommon executor.LinkCommon) *executor.Executor {
+// Use 开始一个数据库操作
+func Use(linkCommon model.LinkCommon) *executor.Executor {
 	executor := &executor.Executor{
 		LinkCommon: linkCommon,
-	}
-
-	return executor
-}
-
-func UseNew(dbContent DbContent) *executor.Executor {
-	executor := &executor.Executor{
-		LinkCommon: dbContent.DbLink,
 	}
 
 	return executor
@@ -44,6 +39,14 @@ func UseNew(dbContent DbContent) *executor.Executor {
 func Sub() *executor.Executor {
 	executor := &executor.Executor{}
 	return executor
+}
+
+// Migrator 开始一个数据库迁移
+func Migrator(linkCommon model.LinkCommon) *migrator.Migrator {
+	mi := &migrator.Migrator{
+		LinkCommon: linkCommon,
+	}
+	return mi
 }
 
 //清空查询条件,复用对象

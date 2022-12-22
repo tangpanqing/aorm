@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/tangpanqing/aorm"
+	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/null"
 	"reflect"
 	"strings"
@@ -60,7 +60,7 @@ func (ex *Executor) Insert(dest interface{}) (int64, error) {
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
+			key := helper.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 			keys = append(keys, key)
 			paramList = append(paramList, val)
@@ -108,7 +108,7 @@ func (ex *Executor) InsertBatch(values interface{}) (int64, error) {
 			isNotNull := valueOf.Index(j).Field(i).Field(0).Field(1).Bool()
 			if isNotNull {
 				if j == 0 {
-					key := aorm.UnderLine(typeOf.Field(i).Name)
+					key := helper.UnderLine(typeOf.Field(i).Name)
 					keys = append(keys, key)
 				}
 
@@ -561,7 +561,7 @@ func (ex *Executor) Where(dest interface{}) *Executor {
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
+			key := helper.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 			ex.whereList = append(ex.whereList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}
@@ -712,7 +712,7 @@ func (ex *Executor) Having(dest interface{}) *Executor {
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
+			key := helper.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 			ex.havingList = append(ex.havingList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}
@@ -912,7 +912,7 @@ func (ex *Executor) handleSet(dest interface{}, paramList []any) (string, []any)
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := aorm.UnderLine(typeOf.Elem().Field(i).Name)
+			key := helper.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 
 			keys = append(keys, key+"=?")
@@ -986,7 +986,7 @@ func handleLockForUpdate(isLock bool) string {
 func whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
-		if "**Executor" == reflect.TypeOf(where[i].Val).String() {
+		if "**executor.Executor" == reflect.TypeOf(where[i].Val).String() {
 			executor := *(**Executor)(unsafe.Pointer(reflect.ValueOf(where[i].Val).Pointer()))
 			subSql, subParams := executor.GetSqlAndParams()
 
@@ -1094,7 +1094,7 @@ func reflectTableName(typeOf reflect.Type, valueOf reflect.Value) string {
 		return res[0].String()
 	} else {
 		arr := strings.Split(typeOf.String(), ".")
-		return aorm.UnderLine(arr[len(arr)-1])
+		return helper.UnderLine(arr[len(arr)-1])
 	}
 }
 
@@ -1110,7 +1110,7 @@ func getFieldNameMap(destValue reflect.Value, destType reflect.Type) map[string]
 func getScans(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
 	var scans []interface{}
 	for _, columnName := range columnNameList {
-		fieldName := aorm.CamelString(strings.ToLower(columnName))
+		fieldName := helper.CamelString(strings.ToLower(columnName))
 		index, ok := fieldNameMap[fieldName]
 		if ok {
 			scans = append(scans, destValue.Field(index).Addr().Interface())

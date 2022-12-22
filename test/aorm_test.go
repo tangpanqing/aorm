@@ -6,6 +6,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tangpanqing/aorm"
 	"github.com/tangpanqing/aorm/executor"
+	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/null"
 	"testing"
 	"time"
@@ -55,31 +56,30 @@ type PersonWithArticleCount struct {
 }
 
 func TestAll(t *testing.T) {
-	sqlite3Content, sqlite3Err := aorm.Open("sqlite3", "test.db")
-	if sqlite3Err != nil {
-		panic(sqlite3Err)
-	}
-
-	//username := "root"
-	//password := "root"
-	//hostname := "localhost"
-	//port := "3306"
-	//dbname := "database_name"
-	//
-	//mysqlContent, mysqlErr := aorm.Open("mysql", username+":"+password+"@tcp("+hostname+":"+port+")/"+dbname+"?charset=utf8mb4&parseTime=True&loc=Local")
-	//if mysqlErr != nil {
-	//	panic(mysqlErr)
+	//sqlite3Content, sqlite3Err := aorm.Open("sqlite3", "test.db")
+	//if sqlite3Err != nil {
+	//	panic(sqlite3Err)
 	//}
 
+	username := "root"
+	password := "root"
+	hostname := "localhost"
+	port := "3306"
+	dbname := "database_name"
+
+	mysqlContent, mysqlErr := aorm.Open("mysql", username+":"+password+"@tcp("+hostname+":"+port+")/"+dbname+"?charset=utf8mb4&parseTime=True&loc=Local")
+	if mysqlErr != nil {
+		panic(mysqlErr)
+	}
+
 	dbList := make([]aorm.DbContent, 0)
-	dbList = append(dbList, sqlite3Content)
-	//dbList = append(dbList, mysqlContent)
+	//dbList = append(dbList, sqlite3Content)
+	dbList = append(dbList, mysqlContent)
 
 	for i := 0; i < len(dbList); i++ {
 		dbItem := dbList[i]
 
 		testMigrate(dbItem.DriverName, dbItem.DbLink)
-		break
 
 		testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
 
@@ -156,15 +156,15 @@ func testMysqlConnect() *sql.DB {
 
 func testMigrate(name string, db *sql.DB) {
 	//AutoMigrate
-	aorm.Use(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
-	aorm.Use(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
+	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
+	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
 
 	//Migrate
-	aorm.Use(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
+	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
 }
 
 func testShowCreateTable(name string, db *sql.DB) {
-	aorm.Use(db).Driver(name).ShowCreateTable("person")
+	aorm.Migrator(db).Driver(name).ShowCreateTable("person")
 }
 
 func testInsert(name string, db *sql.DB) int64 {
@@ -589,9 +589,9 @@ func testHelper(name string, db *sql.DB) {
 	where2 = append(where2, executor.WhereItem{Field: "p.age", Opt: executor.In, Val: []int{18, 20}})
 	err := aorm.Use(db).Debug(false).
 		Table("article o").
-		LeftJoin("person p", aorm.Ul("p.id=o.personId")).
+		LeftJoin("person p", helper.Ul("p.id=o.personId")).
 		Select("o.*").
-		Select(aorm.Ul("p.name as personName")).
+		Select(helper.Ul("p.name as personName")).
 		WhereArr(where2).
 		GetMany(&list2)
 	if err != nil {
