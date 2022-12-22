@@ -4,6 +4,7 @@ import (
 	"github.com/tangpanqing/aorm/executor"
 	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/migrate_mysql"
+	"github.com/tangpanqing/aorm/migrate_sqlite3"
 	"github.com/tangpanqing/aorm/model"
 	"reflect"
 	"strings"
@@ -78,10 +79,14 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 	}
 
 	if mi.driverName == "sqlite3" {
-		//cr := migrate_sqlite3.MigrateExecutor{
-		//	Ex: ex,
-		//}
-		//cr.MigrateCommon(tableName, typeOf)
+		me := migrate_sqlite3.MigrateExecutor{
+			DriverName:  mi.driverName,
+			OpinionList: mi.opinionList,
+			Ex: &executor.Executor{
+				LinkCommon: mi.LinkCommon,
+			},
+		}
+		me.MigrateCommon(tableName, typeOf)
 	}
 }
 

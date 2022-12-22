@@ -56,10 +56,11 @@ type PersonWithArticleCount struct {
 }
 
 func TestAll(t *testing.T) {
-	//sqlite3Content, sqlite3Err := aorm.Open("sqlite3", "test.db")
-	//if sqlite3Err != nil {
-	//	panic(sqlite3Err)
-	//}
+
+	sqlite3Content, sqlite3Err := aorm.Open("sqlite3", "test.db")
+	if sqlite3Err != nil {
+		panic(sqlite3Err)
+	}
 
 	username := "root"
 	password := "root"
@@ -73,13 +74,15 @@ func TestAll(t *testing.T) {
 	}
 
 	dbList := make([]aorm.DbContent, 0)
-	//dbList = append(dbList, sqlite3Content)
+	dbList = append(dbList, sqlite3Content)
 	dbList = append(dbList, mysqlContent)
 
 	for i := 0; i < len(dbList); i++ {
 		dbItem := dbList[i]
 
 		testMigrate(dbItem.DriverName, dbItem.DbLink)
+
+		return
 
 		testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
 
@@ -157,10 +160,10 @@ func testMysqlConnect() *sql.DB {
 func testMigrate(name string, db *sql.DB) {
 	//AutoMigrate
 	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
-	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
+	//aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
 
 	//Migrate
-	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
+	//aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
 }
 
 func testShowCreateTable(name string, db *sql.DB) {
