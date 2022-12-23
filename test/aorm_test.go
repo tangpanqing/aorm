@@ -3,7 +3,9 @@ package test
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tangpanqing/aorm"
 	"github.com/tangpanqing/aorm/builder"
@@ -58,13 +60,16 @@ type PersonWithArticleCount struct {
 
 func TestAll(t *testing.T) {
 	dbList := make([]aorm.DbContent, 0)
-	dbList = append(dbList, testSqlite3Connect())
-	dbList = append(dbList, testMysqlConnect())
+	//dbList = append(dbList, testSqlite3Connect())
+	//dbList = append(dbList, testMysqlConnect())
+	//dbList = append(dbList, testPostgresConnect())
+	dbList = append(dbList, testMssqlConnect())
 
 	for i := 0; i < len(dbList); i++ {
 		dbItem := dbList[i]
 
 		testMigrate(dbItem.DriverName, dbItem.DbLink)
+		return
 
 		testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
 
@@ -133,13 +138,38 @@ func testMysqlConnect() aorm.DbContent {
 	return mysqlContent
 }
 
+func testPostgresConnect() aorm.DbContent {
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "localhost", 5432, "postgres", "root", "postgres")
+
+	postgresContent, postgresErr := aorm.Open("postgres", psqlInfo)
+	if postgresErr != nil {
+		panic(postgresErr)
+	}
+
+	postgresContent.DbLink.Ping()
+
+	return postgresContent
+}
+
+func testMssqlConnect() aorm.DbContent {
+	info := fmt.Sprintf("server=%s;database=%s;user id=%s;password=%s;port=%d", "localhost", "database_name", "sa", "root", 1433)
+	mssqlContent, mssqlErr := aorm.Open("mssql", info)
+	if mssqlErr != nil {
+		panic(mssqlErr)
+	}
+
+	mssqlContent.DbLink.Ping()
+
+	return mssqlContent
+}
+
 func testMigrate(name string, db *sql.DB) {
 	//AutoMigrate
 	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
-	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
+	//aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
 
 	//Migrate
-	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
+	//aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
 }
 
 func testShowCreateTable(name string, db *sql.DB) {
