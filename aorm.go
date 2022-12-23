@@ -2,7 +2,7 @@ package aorm
 
 import (
 	"database/sql" //只需导入你需要的驱动即可
-	"github.com/tangpanqing/aorm/executor"
+	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/migrator"
 	"github.com/tangpanqing/aorm/model"
 )
@@ -27,8 +27,8 @@ func Open(driverName string, dataSourceName string) (DbContent, error) {
 }
 
 // Use 开始一个数据库操作
-func Use(linkCommon model.LinkCommon) *executor.Executor {
-	executor := &executor.Executor{
+func Use(linkCommon model.LinkCommon) *builder.Builder {
+	executor := &builder.Builder{
 		LinkCommon: linkCommon,
 	}
 
@@ -36,8 +36,8 @@ func Use(linkCommon model.LinkCommon) *executor.Executor {
 }
 
 // Sub 子查询
-func Sub() *executor.Executor {
-	executor := &executor.Executor{}
+func Sub() *builder.Builder {
+	executor := &builder.Builder{}
 	return executor
 }
 
@@ -50,13 +50,13 @@ func Migrator(linkCommon model.LinkCommon) *migrator.Migrator {
 }
 
 //清空查询条件,复用对象
-//func (ex *executor.Executor) clear() {
+//func (ex *builder.Executor) clear() {
 //	ex.tableName = ""
 //	ex.selectList = make([]string, 0)
 //	ex.groupList = make([]string, 0)
-//	ex.whereList = make([]executor.WhereItem, 0)
+//	ex.whereList = make([]builder.WhereItem, 0)
 //	ex.joinList = make([]string, 0)
-//	ex.havingList = make([]executor.WhereItem, 0)
+//	ex.havingList = make([]builder.WhereItem, 0)
 //	ex.orderList = make([]string, 0)
 //	ex.offset = 0
 //	ex.pageSize = 0

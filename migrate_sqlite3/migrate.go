@@ -2,7 +2,7 @@ package migrate_sqlite3
 
 import (
 	"fmt"
-	"github.com/tangpanqing/aorm/executor"
+	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/null"
@@ -48,7 +48,7 @@ type MigrateExecutor struct {
 	OpinionList []model.OpinionItem
 
 	//执行者
-	Ex *executor.Executor
+	Ex *builder.Builder
 }
 
 //ShowCreateTable 查看创建表的ddl
@@ -203,8 +203,7 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 }
 
 func (mm *MigrateExecutor) getIndexesFromDb(tableName string) []Index {
-	sqlIndex := "select * from sqlite_master where type = 'index' and tbl_name=" + "'" + tableName + "'"
-
+	sqlIndex := "select * from sqlite_master where type = 'index' and name not like '%sqlite_autoindex%' and tbl_name=" + "'" + tableName + "'"
 	var sqliteMasterList []SqliteMaster
 	mm.Ex.RawSql(sqlIndex).GetMany(&sqliteMasterList)
 
@@ -217,15 +216,28 @@ func (mm *MigrateExecutor) getIndexesFromDb(tableName string) []Index {
 			t = 0
 		}
 
-		fmt.Println(sql)
 		compileRegex := regexp.MustCompile("INDEX\\s(.*?)\\son.*?\\((.*?)\\)")
 		matchArr := compileRegex.FindAllStringSubmatch(sql, -1)
-		fmt.Println(matchArr)
 
 		indexesFromDb = append(indexesFromDb, Index{
 			NonUnique:  null.IntFrom(int64(t)),
 			ColumnName: null.StringFrom(matchArr[0][2]),
 			KeyName:    null.StringFrom(matchArr[0][1]),
+		})
+	}
+
+	//查询是否有主键索引
+	sql := "select * from sqlite_master where type='table' and tbl_name=" + "'" + tableName + "'"
+	var sqliteMaster SqliteMaster
+	mm.Ex.RawSql(sql).GetOne(&sqliteMaster)
+
+	compileRegex := regexp.MustCompile("PRIMARY\\sKEY\\s\\((.*?)\\)")
+	matchArr2 := compileRegex.FindAllStringSubmatch(sqliteMaster.Sql.String, -1)
+	if len(matchArr2) > 0 {
+		indexesFromDb = append(indexesFromDb, Index{
+			NonUnique:  null.IntFrom(0),
+			ColumnName: null.StringFrom(matchArr2[0][1]),
+			KeyName:    null.StringFrom("PRIMARY"),
 		})
 	}
 
@@ -243,23 +255,16 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 				isFind = 1
 
 				if columnCode.DataType.String != columnDb.DataType.String ||
-					columnCode.Extra.String != columnDb.Extra.String ||
 					columnCode.ColumnDefault.String != columnDb.ColumnDefault.String {
 
-					fmt.Println(columnCode.DataType.String)
-					fmt.Println(columnDb.DataType.String)
-					fmt.Println("-------")
-					fmt.Println(columnCode.Extra.String)
-					fmt.Println(columnDb.Extra.String)
-					fmt.Println("-------")
-
-					//sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
-					//_, err := mm.Ex.Exec(sql)
-					//if err != nil {
-					//	fmt.Println(err)
-					//} else {
-					//	fmt.Println("修改属性:" + sql)
-					//}
+					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
+					_, err := mm.Ex.Exec(sql)
+					if err != nil {
+						fmt.Println(sql)
+						fmt.Println(err)
+					} else {
+						fmt.Println("修改属性:" + sql)
+					}
 				}
 			}
 		}
@@ -268,6 +273,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
 			_, err := mm.Ex.Exec(sql)
 			if err != nil {
+				fmt.Println(sql)
 				fmt.Println(err)
 			} else {
 				fmt.Println("增加属性:" + sql)
@@ -296,13 +302,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 		}
 
 		if isFind == 0 {
-			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getIndexStr(indexCode)
-			_, err := mm.Ex.Exec(sql)
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println("增加索引:" + sql)
-			}
+			mm.createIndex(tableFromCode.TableName.String, indexCode)
 		}
 	}
 }
@@ -335,14 +335,23 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 	for i := 0; i < len(indexesFromCode); i++ {
 		index := indexesFromCode[i]
 		if index.KeyName.String != "PRIMARY" {
-			keyType := ""
-			if index.NonUnique.Int64 == 0 {
-				keyType = "UNIQUE"
-			}
-
-			sql := "CREATE " + keyType + " INDEX " + index.KeyName.String + " on " + tableFromCode.TableName.String + " (" + index.ColumnName.String + ")"
-			mm.Ex.Exec(sql)
+			mm.createIndex(tableFromCode.TableName.String, index)
 		}
+	}
+}
+
+func (mm *MigrateExecutor) createIndex(tableName string, index Index) {
+	keyType := ""
+	if index.NonUnique.Int64 == 0 {
+		keyType = "UNIQUE"
+	}
+
+	sql := "CREATE " + keyType + " INDEX " + index.KeyName.String + " on " + tableName + " (" + index.ColumnName.String + ")"
+	_, err := mm.Ex.Exec(sql)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("增加索引:" + sql)
 	}
 }
 
@@ -488,15 +497,6 @@ func getNullAble(fieldMap map[string]string) string {
 	}
 
 	return IsNullable
-}
-
-func getComment(fieldMap map[string]string) string {
-	commentVal, commentIs := fieldMap["comment"]
-	if commentIs {
-		return commentVal
-	}
-
-	return ""
 }
 
 func getExtra(fieldMap map[string]string) string {

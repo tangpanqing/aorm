@@ -1,7 +1,7 @@
 package migrator
 
 import (
-	"github.com/tangpanqing/aorm/executor"
+	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/migrate_mysql"
 	"github.com/tangpanqing/aorm/migrate_sqlite3"
@@ -42,7 +42,7 @@ func (mi *Migrator) ShowCreateTable(tableName string) string {
 		me := migrate_mysql.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
-			Ex: &executor.Executor{
+			Ex: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}
@@ -71,7 +71,7 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 		me := migrate_mysql.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
-			Ex: &executor.Executor{
+			Ex: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}
@@ -82,7 +82,7 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 		me := migrate_sqlite3.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
-			Ex: &executor.Executor{
+			Ex: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}

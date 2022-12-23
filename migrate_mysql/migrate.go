@@ -2,7 +2,7 @@ package migrate_mysql
 
 import (
 	"fmt"
-	"github.com/tangpanqing/aorm/executor"
+	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/null"
@@ -42,7 +42,7 @@ type MigrateExecutor struct {
 	OpinionList []model.OpinionItem
 
 	//执行者
-	Ex *executor.Executor
+	Ex *builder.Builder
 }
 
 //ShowCreateTable 查看创建表的ddl
