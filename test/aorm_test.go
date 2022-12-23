@@ -2,6 +2,7 @@ package test
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tangpanqing/aorm"
@@ -13,7 +14,7 @@ import (
 )
 
 type Article struct {
-	Id          null.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
+	Id          null.Int    `aorm:"primary;auto_increment" json:"id"`
 	Type        null.Int    `aorm:"index;comment:类型" json:"type"`
 	PersonId    null.Int    `aorm:"comment:人员Id" json:"personId"`
 	ArticleBody null.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
@@ -104,7 +105,7 @@ func TestAll(t *testing.T) {
 		testExec(dbItem.DriverName, dbItem.DbLink)
 
 		testTransaction(dbItem.DriverName, dbItem.DbLink)
-		testTruncate(dbItem.DriverName, dbItem.DbLink)
+		//testTruncate(dbItem.DriverName, dbItem.DbLink)
 		testHelper(dbItem.DriverName, dbItem.DbLink)
 	}
 }
@@ -146,16 +147,17 @@ func testShowCreateTable(name string, db *sql.DB) {
 }
 
 func testInsert(name string, db *sql.DB) int64 {
-
-	id, errInsert := aorm.Use(db).Debug(false).Insert(&Person{
+	obj := Person{
 		Name:       null.StringFrom("Alice"),
 		Sex:        null.BoolFrom(false),
 		Age:        null.IntFrom(18),
 		Type:       null.IntFrom(0),
 		CreateTime: null.TimeFrom(time.Now()),
-		Money:      null.FloatFrom(100.15987654321),
+		Money:      null.FloatFrom(100.15),
 		Test:       null.FloatFrom(200.15987654321987654321),
-	})
+	}
+
+	id, errInsert := aorm.Use(db).Debug(false).Insert(&obj)
 	if errInsert != nil {
 		panic(name + "testInsert" + "found err")
 	}
@@ -165,6 +167,32 @@ func testInsert(name string, db *sql.DB) int64 {
 		PersonId:    null.IntFrom(id),
 		ArticleBody: null.StringFrom("文章内容"),
 	})
+
+	var person Person
+	aorm.Use(db).Table("person").WhereEq("id", id).GetOne(&person)
+	if obj.Name.String != person.Name.String {
+		fmt.Println("Name not match, expected: " + obj.Name.String + " ,but real is : " + person.Name.String)
+	}
+
+	if obj.Sex.Bool != person.Sex.Bool {
+		fmt.Println("Sex not match, expected: " + fmt.Sprintf("%v", obj.Sex.Bool) + " ,but real is : " + fmt.Sprintf("%v", person.Sex.Bool))
+	}
+
+	if obj.Age.Int64 != person.Age.Int64 {
+		fmt.Println("Age not match, expected: " + fmt.Sprintf("%v", obj.Age.Int64) + " ,but real is : " + fmt.Sprintf("%v", person.Age.Int64))
+	}
+
+	if obj.Type.Int64 != person.Type.Int64 {
+		fmt.Println("Type not match, expected: " + fmt.Sprintf("%v", obj.Type.Int64) + " ,but real is : " + fmt.Sprintf("%v", person.Type.Int64))
+	}
+
+	if obj.Money.Float64 != person.Money.Float64 {
+		fmt.Println(name + ",Money not match, expected: " + fmt.Sprintf("%v", obj.Money.Float64) + " ,but real is : " + fmt.Sprintf("%v", person.Money.Float64))
+	}
+
+	if obj.Test.Float64 != person.Test.Float64 {
+		fmt.Println(name + ",Test not match, expected: " + fmt.Sprintf("%v", obj.Test.Float64) + " ,but real is : " + fmt.Sprintf("%v", person.Test.Float64))
+	}
 
 	return id
 }
@@ -177,7 +205,7 @@ func testInsertBatch(name string, db *sql.DB) int64 {
 		Age:        null.IntFrom(18),
 		Type:       null.IntFrom(0),
 		CreateTime: null.TimeFrom(time.Now()),
-		Money:      null.FloatFrom(100.15987654321),
+		Money:      null.FloatFrom(100.15),
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})
 
@@ -187,7 +215,7 @@ func testInsertBatch(name string, db *sql.DB) int64 {
 		Age:        null.IntFrom(18),
 		Type:       null.IntFrom(0),
 		CreateTime: null.TimeFrom(time.Now()),
-		Money:      null.FloatFrom(100.15987654321),
+		Money:      null.FloatFrom(100.15),
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})
 
@@ -281,7 +309,7 @@ func testWhere(name string, db *sql.DB) {
 	where1 = append(where1, builder.WhereItem{Field: "type", Opt: builder.Eq, Val: 0})
 	where1 = append(where1, builder.WhereItem{Field: "age", Opt: builder.In, Val: []int{18, 20}})
 	where1 = append(where1, builder.WhereItem{Field: "money", Opt: builder.Between, Val: []float64{100.1, 200.9}})
-	where1 = append(where1, builder.WhereItem{Field: "money", Opt: builder.Eq, Val: 100.15987654321})
+	where1 = append(where1, builder.WhereItem{Field: "money", Opt: builder.Eq, Val: 100.15})
 	where1 = append(where1, builder.WhereItem{Field: "name", Opt: builder.Like, Val: []string{"%", "li", "%"}})
 
 	err := aorm.Use(db).Debug(false).Driver(name).Table("person").WhereArr(where1).GetMany(&listByWhere)
@@ -555,11 +583,7 @@ func testTransaction(name string, db *sql.DB) {
 }
 
 func testTruncate(name string, db *sql.DB) {
-	if name == "sqlite3" {
-		return
-	}
-
-	_, err := aorm.Use(db).Debug(false).Table("person").Truncate()
+	_, err := aorm.Use(db).Debug(false).Driver(name).Table("person").Truncate()
 	if err != nil {
 		panic(name + " testTruncate " + "found err")
 	}

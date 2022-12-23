@@ -306,7 +306,10 @@ func (ex *Builder) Delete() (int64, error) {
 
 // Truncate 清空记录, sqlte3不支持此操作
 func (ex *Builder) Truncate() (int64, error) {
-	sqlStr := "TRUNCATE TABLE  " + ex.tableName
+	sqlStr := "TRUNCATE TABLE " + ex.tableName
+	if ex.driverName == "sqlite3" {
+		sqlStr = "DELETE FROM " + ex.tableName
+	}
 
 	return ex.ExecAffected(sqlStr)
 }
