@@ -12,9 +12,7 @@ import (
 )
 
 type Table struct {
-	TableName    null.String
-	Engine       null.String
-	TableComment null.String
+	TableName null.String
 }
 
 type Column struct {
@@ -80,8 +78,6 @@ func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) 
 func (mm *MigrateExecutor) getTableFromCode(tableName string) Table {
 	var tableFromCode Table
 	tableFromCode.TableName = null.StringFrom(tableName)
-	tableFromCode.Engine = null.StringFrom(mm.getOpinionVal("ENGINE", "MyISAM"))
-	tableFromCode.TableComment = null.StringFrom(mm.getOpinionVal("COMMENT", ""))
 
 	return tableFromCode
 }
@@ -146,7 +142,7 @@ func (mm *MigrateExecutor) getIndexesFromCode(typeOf reflect.Type, tableFromCode
 func (mm *MigrateExecutor) getDbName() (string, error) {
 	//获取数据库名称
 	var dbName string
-	err := mm.Ex.RawSql("SELECT DATABASE()").Value("DATABASE()", &dbName)
+	err := mm.Ex.RawSql("Select Name as db_name From Master..SysDataBases Where DbId=(Select Dbid From Master..SysProcesses Where Spid = @@spid)").Value("db_name", &dbName)
 	if err != nil {
 		return "", err
 	}
@@ -155,49 +151,63 @@ func (mm *MigrateExecutor) getDbName() (string, error) {
 }
 
 func (mm *MigrateExecutor) getTableFromDb(dbName string, tableName string) []Table {
-	sql := "SELECT TABLE_NAME,ENGINE,TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA =" + "'" + dbName + "' AND TABLE_NAME =" + "'" + tableName + "'"
+	sql := "SELECT Name as TABLE_NAME FROM SysObjects Where XType='U' and Name =" + "'" + tableName + "'"
 	var dataList []Table
 	mm.Ex.RawSql(sql).GetMany(&dataList)
-	for i := 0; i < len(dataList); i++ {
-		dataList[i].TableComment = null.StringFrom("'" + dataList[i].TableComment.String + "'")
-	}
 
 	return dataList
 }
 
 func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []Column {
 	var columnsFromDb []Column
+	sqlColumn := "SELECT " +
+		//	"table_name       = Case When A.colorder=1 Then D.name Else '' End," +
+		//	"table_comment     = Case When A.colorder=1 Then isnull(F.value,'') Else '' End," +
+		"column_name     = A.name," +
+		"column_comment  = isnull(G.[value],'')," +
+		"data_type       = B.name," +
+		"max_length      = COLUMNPROPERTY(A.id,A.name,'PRECISION')," +
+		"is_nullable     = Case When A.isnullable=1 Then 'YES'Else 'NO' End," +
+		"column_default  = isnull(E.Text,'') " +
+		"FROM syscolumns A " +
+		"Left Join systypes B On A.xusertype=B.xusertype " +
+		"Inner Join sysobjects D On A.id=D.id  and D.xtype='U' and  D.name<>'dtproperties' " +
+		"Left Join syscomments E ON A.cdefault=E.id " +
+		"Left Join sys.extended_properties  G On A.id=G.major_id and A.colid=G.minor_id " +
+		"Left Join sys.extended_properties F On D.id=F.major_id and F.minor_id=0 " +
+		"Order By A.id,A.colorder"
 
-	sqlColumn := "SELECT COLUMN_NAME,DATA_TYPE,CHARACTER_MAXIMUM_LENGTH as Max_Length,COLUMN_DEFAULT,COLUMN_COMMENT,EXTRA,IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA =" + "'" + dbName + "' AND TABLE_NAME =" + "'" + tableName + "'"
 	mm.Ex.RawSql(sqlColumn).GetMany(&columnsFromDb)
-
-	for j := 0; j < len(columnsFromDb); j++ {
-		if columnsFromDb[j].DataType.String == "text" && columnsFromDb[j].MaxLength.Int64 == 65535 {
-			columnsFromDb[j].MaxLength = null.IntFrom(0)
-		}
-	}
 
 	return columnsFromDb
 }
 
 func (mm *MigrateExecutor) getIndexesFromDb(tableName string) []Index {
-	sqlIndex := "SHOW INDEXES FROM " + tableName
+	sqlIndex := "SELECT " +
+		"i.[name] AS 'key_name'," +
+		"SUBSTRING(column_names, 1, LEN(column_names) - 1) AS 'column_name'," +
+		"CASE WHEN i.is_unique = 1 THEN 0 ELSE 1 END AS 'non_unique' " +
+		"FROM sys.objects t " +
+		"INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
+		"CROSS APPLY " +
+		"(SELECT col.[name] + ', ' " +
+		"FROM sys.index_columns ic " +
+		"INNER JOIN sys.columns col ON ic.object_id = col.object_id AND ic.column_id = col.column_id " +
+		"WHERE ic.object_id = t.object_id " +
+		"AND ic.index_id = i.index_id " +
+		"ORDER BY col.column_id " +
+		"FOR XML PATH('') " +
+		") D(column_names) " +
+		"WHERE t.is_ms_shipped <> 1 " +
+		"AND index_id > 0 " +
+		"AND t.name = '" + tableName + "'"
 
-	var indexsFromDb []Index
-	mm.Ex.RawSql(sqlIndex).GetMany(&indexsFromDb)
-
-	return indexsFromDb
+	var indexesFromDb []Index
+	mm.Ex.RawSql(sqlIndex).GetMany(&indexesFromDb)
+	return indexesFromDb
 }
 
 func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Column, indexesFromCode []Index, tableFromDb Table, columnsFromDb []Column, indexesFromDb []Index) {
-	if tableFromCode.Engine != tableFromDb.Engine {
-		mm.modifyTableEngine(tableFromCode)
-	}
-
-	if tableFromCode.TableComment != tableFromDb.TableComment {
-		mm.modifyTableComment(tableFromCode)
-	}
-
 	for i := 0; i < len(columnsFromCode); i++ {
 		isFind := 0
 		columnCode := columnsFromCode[i]
@@ -206,12 +216,10 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 			columnDb := columnsFromDb[j]
 			if columnCode.ColumnName == columnDb.ColumnName {
 				isFind = 1
-				if columnCode.DataType.String != columnDb.DataType.String ||
-					columnCode.MaxLength.Int64 != columnDb.MaxLength.Int64 ||
-					columnCode.ColumnComment.String != columnDb.ColumnComment.String ||
-					columnCode.Extra.String != columnDb.Extra.String ||
-					columnCode.ColumnDefault.String != columnDb.ColumnDefault.String {
+				if columnCode.DataType.String != columnDb.DataType.String {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
+					fmt.Println(sql)
+
 					_, err := mm.Ex.Exec(sql)
 					if err != nil {
 						fmt.Println(err)
@@ -241,7 +249,17 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 			indexDb := indexesFromDb[j]
 			if indexCode.ColumnName == indexDb.ColumnName {
 				isFind = 1
-				if indexCode.KeyName != indexDb.KeyName || indexCode.NonUnique != indexDb.NonUnique {
+
+				keyMatch := false
+				if "PRIMARY" == indexCode.KeyName.String && strings.Index(indexDb.KeyName.String, "PK__") != -1 {
+					keyMatch = true
+				}
+
+				if "PRIMARY" != indexCode.KeyName.String && indexCode.KeyName.String == indexDb.KeyName.String {
+					keyMatch = true
+				}
+
+				if !keyMatch || indexCode.NonUnique.Int64 != indexDb.NonUnique.Int64 {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
 					_, err := mm.Ex.Exec(sql)
 					if err != nil {
@@ -265,26 +283,6 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 	}
 }
 
-func (mm *MigrateExecutor) modifyTableEngine(tableFromCode Table) {
-	sql := "ALTER TABLE " + tableFromCode.TableName.String + " Engine " + tableFromCode.Engine.String
-	_, err := mm.Ex.Exec(sql)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println("修改表:" + sql)
-	}
-}
-
-func (mm *MigrateExecutor) modifyTableComment(tableFromCode Table) {
-	sql := "ALTER TABLE " + tableFromCode.TableName.String + " Comment " + tableFromCode.TableComment.String
-	_, err := mm.Ex.Exec(sql)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println("修改表:" + sql)
-	}
-}
-
 func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Column, indexesFromCode []Index) {
 	var fieldArr []string
 
@@ -298,7 +296,9 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 		fieldArr = append(fieldArr, getIndexStr(index))
 	}
 
-	sqlStr := "CREATE TABLE `" + tableFromCode.TableName.String + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + " ENGINE " + tableFromCode.Engine.String + " COMMENT  " + tableFromCode.TableComment.String + ";"
+	sqlStr := "CREATE TABLE " + tableFromCode.TableName.String + " (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
+	fmt.Println(sqlStr)
+
 	_, err := mm.Ex.Exec(sqlStr)
 	if err != nil {
 		fmt.Println(err)
@@ -355,10 +355,13 @@ func getColumnStr(column Column) string {
 	}
 
 	if column.ColumnComment.String != "" {
-		strArr = append(strArr, "COMMENT '"+column.ColumnComment.String+"'")
+		//strArr = append(strArr, "COMMENT '"+column.ColumnComment.String+"'")
 	}
 
 	if column.Extra.String != "" {
+		if column.Extra.String == "auto_increment" {
+			column.Extra.String = "identity(1,1)"
+		}
 		strArr = append(strArr, column.Extra.String)
 	}
 
@@ -371,16 +374,16 @@ func getIndexStr(index Index) string {
 	if "PRIMARY" == index.KeyName.String {
 		strArr = append(strArr, index.KeyName.String)
 		strArr = append(strArr, "KEY")
-		strArr = append(strArr, "(`"+index.ColumnName.String+"`)")
+		strArr = append(strArr, "("+index.ColumnName.String+")")
 	} else {
 		if 0 == index.NonUnique.Int64 {
 			strArr = append(strArr, "Unique")
 			strArr = append(strArr, index.KeyName.String)
-			strArr = append(strArr, "(`"+index.ColumnName.String+"`)")
+			strArr = append(strArr, "("+index.ColumnName.String+")")
 		} else {
 			strArr = append(strArr, "Index")
 			strArr = append(strArr, index.KeyName.String)
-			strArr = append(strArr, "(`"+index.ColumnName.String+"`)")
+			strArr = append(strArr, "("+index.ColumnName.String+")")
 		}
 	}
 
@@ -393,6 +396,9 @@ func getDataType(fieldType string, fieldMap map[string]string) string {
 	dataTypeVal, dataTypeOk := fieldMap["type"]
 	if dataTypeOk {
 		DataType = dataTypeVal
+		if DataType == "double" {
+			DataType = "float"
+		}
 	} else {
 		if "Int" == fieldType {
 			DataType = "int"

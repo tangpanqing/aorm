@@ -100,17 +100,31 @@ func (ex *Builder) Insert(dest interface{}) (int64, error) {
 
 	sqlStr := "INSERT INTO " + ex.tableName + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
 
-	res, err := ex.Exec(sqlStr, paramList...)
-	if err != nil {
-		return 0, err
-	}
+	//如果不是mssql
+	if ex.driverName != "mssql" {
+		res, err := ex.Exec(sqlStr, paramList...)
+		if err != nil {
+			return 0, err
+		}
 
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
+		lastId, err := res.LastInsertId()
+		if err != nil {
+			return 0, err
+		}
 
-	return lastId, nil
+		return lastId, nil
+	} else {
+		rows, err := ex.LinkCommon.Query(sqlStr+"; select ID = convert(bigint, SCOPE_IDENTITY())", paramList...)
+		if err != nil {
+			return 0, err
+		}
+		defer rows.Close()
+		var lastInsertId1 int64
+		for rows.Next() {
+			rows.Scan(&lastInsertId1)
+		}
+		return lastInsertId1, nil
+	}
 }
 
 // InsertBatch 批量增加记录
@@ -272,7 +286,7 @@ func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
 	groupStr := handleGroup(ex.groupList)
 	havingStr, paramList := ex.handleHaving(ex.havingList, paramList)
 	orderStr := handleOrder(ex.orderList)
-	limitStr, paramList := handleLimit(ex.offset, ex.pageSize, paramList)
+	limitStr, paramList := ex.handleLimit(ex.offset, ex.pageSize, paramList)
 	lockStr := handleLockForUpdate(ex.isLockForUpdate)
 
 	sqlStr := "SELECT " + fieldStr + " FROM " + ex.tableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr

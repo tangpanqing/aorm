@@ -23,7 +23,7 @@ type Article struct {
 }
 
 type ArticleVO struct {
-	Id          null.Int    `aorm:"primary;auto_increment;type:bigint" json:"id"`
+	Id          null.Int    `aorm:"primary;auto_increment" json:"id"`
 	Type        null.Int    `aorm:"index;comment:类型" json:"type"`
 	PersonId    null.Int    `aorm:"comment:人员Id" json:"personId"`
 	PersonName  null.String `aorm:"comment:人员名称" json:"personName"`
@@ -60,8 +60,8 @@ type PersonWithArticleCount struct {
 
 func TestAll(t *testing.T) {
 	dbList := make([]aorm.DbContent, 0)
-	//dbList = append(dbList, testSqlite3Connect())
-	//dbList = append(dbList, testMysqlConnect())
+	dbList = append(dbList, testSqlite3Connect())
+	dbList = append(dbList, testMysqlConnect())
 	//dbList = append(dbList, testPostgresConnect())
 	dbList = append(dbList, testMssqlConnect())
 
@@ -69,7 +69,6 @@ func TestAll(t *testing.T) {
 		dbItem := dbList[i]
 
 		testMigrate(dbItem.DriverName, dbItem.DbLink)
-		return
 
 		testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
 
@@ -158,7 +157,10 @@ func testMssqlConnect() aorm.DbContent {
 		panic(mssqlErr)
 	}
 
-	mssqlContent.DbLink.Ping()
+	err := mssqlContent.DbLink.Ping()
+	if err != nil {
+		panic(err)
+	}
 
 	return mssqlContent
 }
@@ -166,10 +168,10 @@ func testMssqlConnect() aorm.DbContent {
 func testMigrate(name string, db *sql.DB) {
 	//AutoMigrate
 	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{})
-	//aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
+	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "文章").AutoMigrate(&Article{})
 
 	//Migrate
-	//aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
+	aorm.Migrator(db).Driver(name).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
 }
 
 func testShowCreateTable(name string, db *sql.DB) {
@@ -187,19 +189,22 @@ func testInsert(name string, db *sql.DB) int64 {
 		Test:       null.FloatFrom(200.15987654321987654321),
 	}
 
-	id, errInsert := aorm.Use(db).Debug(false).Insert(&obj)
+	id, errInsert := aorm.Use(db).Debug(false).Driver(name).Insert(&obj)
 	if errInsert != nil {
-		panic(name + "testInsert" + "found err")
+		panic(name + " testInsert " + "found err: " + errInsert.Error())
 	}
-
-	aorm.Use(db).Debug(false).Insert(&Article{
+	aorm.Use(db).Debug(false).Driver(name).Insert(&Article{
 		Type:        null.IntFrom(0),
 		PersonId:    null.IntFrom(id),
 		ArticleBody: null.StringFrom("文章内容"),
 	})
 
 	var person Person
-	aorm.Use(db).Table("person").WhereEq("id", id).GetOne(&person)
+	err := aorm.Use(db).Table("person").Debug(false).Driver(name).WhereEq("id", id).OrderBy("id", "DESC").GetOne(&person)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
 	if obj.Name.String != person.Name.String {
 		fmt.Println("Name not match, expected: " + obj.Name.String + " ,but real is : " + person.Name.String)
 	}
@@ -259,7 +264,7 @@ func testInsertBatch(name string, db *sql.DB) int64 {
 
 func testGetOne(name string, db *sql.DB, id int64) {
 	var person Person
-	errFind := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).GetOne(&person)
+	errFind := aorm.Use(db).Debug(false).Driver(name).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).GetOne(&person)
 	if errFind != nil {
 		panic(name + "testGetOne" + "found err")
 	}
@@ -288,7 +293,7 @@ func testDelete(name string, db *sql.DB, id int64) {
 }
 
 func testTable(name string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Table("person_1").Insert(&Person{Name: null.StringFrom("Cherry")})
+	_, err := aorm.Use(db).Debug(false).Driver(name).Table("person_1").Insert(&Person{Name: null.StringFrom("Cherry")})
 	if err != nil {
 		panic(name + " testTable " + "found err:" + err.Error())
 	}
@@ -375,6 +380,8 @@ func testGroupBy(name string, db *sql.DB) {
 		Select("count(age) as age_count").
 		GroupBy("age").
 		WhereArr(where).
+		Driver(name).
+		OrderBy("age", "DESC").
 		GetOne(&personAge)
 	if err != nil {
 		panic(name + "testGroupBy" + "found err")
@@ -388,7 +395,7 @@ func testHaving(name string, db *sql.DB) {
 	where3 = append(where3, builder.WhereItem{Field: "type", Opt: builder.Eq, Val: 0})
 
 	var having []builder.WhereItem
-	having = append(having, builder.WhereItem{Field: "age_count", Opt: builder.Gt, Val: 4})
+	having = append(having, builder.WhereItem{Field: "count(age)", Opt: builder.Gt, Val: 4})
 
 	err := aorm.Use(db).Debug(false).
 		Table("person").
@@ -396,10 +403,12 @@ func testHaving(name string, db *sql.DB) {
 		Select("count(age) as age_count").
 		GroupBy("age").
 		WhereArr(where3).
+		Driver(name).
+		OrderBy("age", "DESC").
 		HavingArr(having).
 		GetMany(&listByHaving)
 	if err != nil {
-		panic(name + "testHaving" + "found err")
+		panic(name + " testHaving " + "found err")
 	}
 }
 
@@ -425,6 +434,8 @@ func testLimit(name string, db *sql.DB) {
 		Table("person").
 		WhereArr(where1).
 		Limit(50, 10).
+		Driver(name).
+		OrderBy("id", "DESC").
 		GetMany(&list3)
 	if err1 != nil {
 		panic(name + "testLimit" + "found err")
@@ -437,6 +448,8 @@ func testLimit(name string, db *sql.DB) {
 		Table("person").
 		WhereArr(where2).
 		Page(3, 10).
+		Driver(name).
+		OrderBy("id", "DESC").
 		GetMany(&list4)
 	if err != nil {
 		panic(name + "testPage" + "found err")
@@ -444,12 +457,18 @@ func testLimit(name string, db *sql.DB) {
 }
 
 func testLock(name string, db *sql.DB, id int64) {
-	if name == "sqlite3" {
+	if name == "sqlite3" || name == "mssql" {
 		return
 	}
 
 	var itemByLock Person
-	err := aorm.Use(db).Debug(false).LockForUpdate(true).Where(&Person{Id: null.IntFrom(id)}).GetOne(&itemByLock)
+	err := aorm.Use(db).
+		Debug(false).
+		LockForUpdate(true).
+		Where(&Person{Id: null.IntFrom(id)}).
+		Driver(name).
+		OrderBy("id", "DESC").
+		GetOne(&itemByLock)
 	if err != nil {
 		panic(name + "testLock" + "found err")
 	}
@@ -469,55 +488,55 @@ func testDecrement(name string, db *sql.DB, id int64) {
 	}
 }
 
-func testValue(dbName string, db *sql.DB, id int64) {
+func testValue(driver string, db *sql.DB, id int64) {
 
 	var name string
-	errName := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Value("name", &name)
+	errName := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("name", &name)
 	if errName != nil {
-		panic(dbName + "testValue" + "found err")
+		panic(driver + "testValue" + "found err")
 	}
 
 	var age int64
-	errAge := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Value("age", &age)
+	errAge := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("age", &age)
 	if errAge != nil {
-		panic(dbName + "testValue" + "found err")
+		panic(driver + "testValue" + "found err")
 	}
 
 	var money float32
-	errMoney := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Value("money", &money)
+	errMoney := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("money", &money)
 	if errMoney != nil {
-		panic(dbName + "testValue" + "found err")
+		panic(driver + "testValue" + "found err")
 	}
 
 	var test float64
-	errTest := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Value("test", &test)
+	errTest := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("test", &test)
 	if errTest != nil {
-		panic(dbName + "testValue" + "found err")
+		panic(driver + "testValue" + "found err")
 	}
 }
 
 func testPluck(name string, db *sql.DB) {
 
 	var nameList []string
-	errNameList := aorm.Use(db).Debug(false).Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("name", &nameList)
+	errNameList := aorm.Use(db).Debug(false).Driver(name).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("name", &nameList)
 	if errNameList != nil {
 		panic(name + "testPluck" + "found err")
 	}
 
 	var ageList []int64
-	errAgeList := aorm.Use(db).Debug(false).Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("age", &ageList)
+	errAgeList := aorm.Use(db).Debug(false).Driver(name).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("age", &ageList)
 	if errAgeList != nil {
 		panic(name + "testPluck" + "found err:" + errAgeList.Error())
 	}
 
 	var moneyList []float32
-	errMoneyList := aorm.Use(db).Debug(false).Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("money", &moneyList)
+	errMoneyList := aorm.Use(db).Debug(false).Driver(name).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("money", &moneyList)
 	if errMoneyList != nil {
 		panic(name + "testPluck" + "found err")
 	}
 
 	var testList []float64
-	errTestList := aorm.Use(db).Debug(false).Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("test", &testList)
+	errTestList := aorm.Use(db).Debug(false).Driver(name).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("test", &testList)
 	if errTestList != nil {
 		panic(name + "testPluck" + "found err")
 	}
@@ -568,13 +587,13 @@ func testExec(name string, db *sql.DB) {
 func testTransaction(name string, db *sql.DB) {
 	tx, _ := db.Begin()
 
-	id, errInsert := aorm.Use(tx).Debug(false).Insert(&Person{
+	id, errInsert := aorm.Use(tx).Debug(false).Driver(name).Insert(&Person{
 		Name: null.StringFrom("Alice"),
 	})
 
 	if errInsert != nil {
 		tx.Rollback()
-		panic(name + "testTransaction" + "found err")
+		panic(name + " testTransaction " + "found err:" + errInsert.Error())
 		return
 	}
 
@@ -590,7 +609,7 @@ func testTransaction(name string, db *sql.DB) {
 	var person Person
 	errPerson := aorm.Use(tx).Debug(false).Where(&Person{
 		Id: null.IntFrom(id),
-	}).GetOne(&person)
+	}).Driver(name).OrderBy("id", "DESC").GetOne(&person)
 	if errPerson != nil {
 		tx.Rollback()
 		panic(name + "testTransaction" + "found err")

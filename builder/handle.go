@@ -98,7 +98,7 @@ func handleOrder(orderList []string) string {
 }
 
 //拼接SQL,分页相关
-func handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
+func (ex *Builder) handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
 	if 0 == pageSize {
 		return "", paramList
 	}
@@ -106,7 +106,12 @@ func handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
 	paramList = append(paramList, offset)
 	paramList = append(paramList, pageSize)
 
-	return " Limit ?,? ", paramList
+	str := " Limit ?,? "
+	if ex.driverName == "mssql" {
+		str = " offset ? rows fetch next ? rows only "
+	}
+
+	return str, paramList
 }
 
 //拼接SQL,锁
