@@ -7,9 +7,18 @@ import (
 	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/null"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+type PgIndexes struct {
+	Schemaname null.String
+	Tablename  null.String
+	Indexname  null.String
+	Tablespace null.String
+	Indexdef   null.String
+}
 
 type Table struct {
 	TableName    null.String
@@ -61,7 +70,6 @@ func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) 
 	if dbErr != nil {
 		return dbErr
 	}
-	fmt.Println("dbName:" + dbName)
 
 	tablesFromDb := mm.getTableFromDb(dbName, tableName)
 	if len(tablesFromDb) != 0 {
@@ -172,8 +180,12 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 	mm.Ex.RawSql(sqlColumn).GetMany(&columnsFromDb)
 
 	for j := 0; j < len(columnsFromDb); j++ {
-		if columnsFromDb[j].DataType.String == "text" && columnsFromDb[j].MaxLength.Int64 == 65535 {
-			columnsFromDb[j].MaxLength = null.IntFrom(0)
+		if columnsFromDb[j].DataType.String == "character varying" {
+			columnsFromDb[j].DataType = null.StringFrom("varchar")
+		}
+
+		if columnsFromDb[j].DataType.String == "double precision" {
+			columnsFromDb[j].DataType = null.StringFrom("float")
 		}
 	}
 
@@ -181,18 +193,46 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 }
 
 func (mm *MigrateExecutor) getIndexesFromDb(tableName string) []Index {
-	sqlIndex := "SHOW INDEXES FROM " + tableName
+	sqlIndex := "select * from pg_indexes where tablename=" + "'" + tableName + "'"
+	var sqliteMasterList []PgIndexes
+	mm.Ex.RawSql(sqlIndex).GetMany(&sqliteMasterList)
 
-	var indexsFromDb []Index
-	mm.Ex.RawSql(sqlIndex).GetMany(&indexsFromDb)
+	var indexesFromDb []Index
+	for i := 0; i < len(sqliteMasterList); i++ {
+		indexName := sqliteMasterList[i].Indexname.String
+		sql := sqliteMasterList[i].Indexdef.String
 
-	return indexsFromDb
+		t := 1
+		if strings.Index(sql, "UNIQUE") != -1 {
+			t = 0
+		}
+
+		compileRegex := regexp.MustCompile("INDEX\\s(.*?)\\sON.*?\\((.*?)\\)")
+		matchArr := compileRegex.FindAllStringSubmatch(sql, -1)
+
+		//主键索引
+		if indexName == tableName+"_pkey" {
+			indexesFromDb = append(indexesFromDb, Index{
+				NonUnique:  null.IntFrom(int64(t)),
+				ColumnName: null.StringFrom(matchArr[0][2]),
+				KeyName:    null.StringFrom("PRIMARY"),
+			})
+		} else {
+			indexesFromDb = append(indexesFromDb, Index{
+				NonUnique:  null.IntFrom(int64(t)),
+				ColumnName: null.StringFrom(matchArr[0][2]),
+				KeyName:    null.StringFrom(matchArr[0][1]),
+			})
+		}
+	}
+
+	return indexesFromDb
 }
 
 func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Column, indexesFromCode []Index, tableFromDb Table, columnsFromDb []Column, indexesFromDb []Index) {
-	if tableFromCode.TableComment != tableFromDb.TableComment {
-		mm.modifyTableComment(tableFromCode)
-	}
+	//if tableFromCode.TableComment != tableFromDb.TableComment {
+	//	mm.modifyTableComment(tableFromCode)
+	//}
 
 	for i := 0; i < len(columnsFromCode); i++ {
 		isFind := 0
@@ -200,14 +240,14 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		for j := 0; j < len(columnsFromDb); j++ {
 			columnDb := columnsFromDb[j]
-			if columnCode.ColumnName == columnDb.ColumnName {
+			if columnCode.ColumnName.String == columnDb.ColumnName.String {
 				isFind = 1
-				if columnCode.DataType.String != columnDb.DataType.String ||
-					columnCode.MaxLength.Int64 != columnDb.MaxLength.Int64 ||
-					columnCode.ColumnComment.String != columnDb.ColumnComment.String ||
-					columnCode.Extra.String != columnDb.Extra.String ||
-					columnCode.ColumnDefault.String != columnDb.ColumnDefault.String {
-					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
+				if columnCode.DataType.String != columnDb.DataType.String {
+					fmt.Println(columnCode.ColumnName.String, columnCode.DataType.String, columnDb.DataType.String)
+
+					sql := "ALTER TABLE " + tableFromCode.TableName.String + " alter COLUMN " + getColumnStr(columnCode, "type")
+					//fmt.Println(sql)
+
 					_, err := mm.Ex.Exec(sql)
 					if err != nil {
 						fmt.Println(err)
@@ -219,7 +259,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 		}
 
 		if isFind == 0 {
-			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
+			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode, "")
 			_, err := mm.Ex.Exec(sql)
 			if err != nil {
 				fmt.Println(err)
@@ -250,13 +290,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 		}
 
 		if isFind == 0 {
-			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getIndexStr(indexCode)
-			_, err := mm.Ex.Exec(sql)
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println("增加索引:" + sql)
-			}
+			mm.createIndex(tableFromCode.TableName.String, indexCode)
 		}
 	}
 }
@@ -276,15 +310,17 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 
 	for i := 0; i < len(columnsFromCode); i++ {
 		column := columnsFromCode[i]
-		fieldArr = append(fieldArr, getColumnStr(column))
+		fieldArr = append(fieldArr, getColumnStr(column, ""))
 	}
 
 	for i := 0; i < len(indexesFromCode); i++ {
 		index := indexesFromCode[i]
-		fieldArr = append(fieldArr, getIndexStr(index))
+		if index.KeyName.String == "PRIMARY" {
+			fieldArr = append(fieldArr, "PRIMARY KEY ("+index.ColumnName.String+")")
+		}
 	}
 
-	sqlStr := "CREATE TABLE `" + tableFromCode.TableName.String + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + " COMMENT  " + tableFromCode.TableComment.String + ";"
+	sqlStr := "CREATE TABLE " + tableFromCode.TableName.String + " (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
 	fmt.Println(sqlStr)
 
 	_, err := mm.Ex.Exec(sqlStr)
@@ -292,6 +328,29 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 		fmt.Println(err)
 	} else {
 		fmt.Println("创建表:" + tableFromCode.TableName.String)
+	}
+
+	//创建其他索引
+	for i := 0; i < len(indexesFromCode); i++ {
+		index := indexesFromCode[i]
+		if index.KeyName.String != "PRIMARY" {
+			mm.createIndex(tableFromCode.TableName.String, index)
+		}
+	}
+}
+
+func (mm *MigrateExecutor) createIndex(tableName string, index Index) {
+	keyType := ""
+	if index.NonUnique.Int64 == 0 {
+		keyType = "UNIQUE"
+	}
+
+	sql := "CREATE " + keyType + " INDEX " + index.KeyName.String + " on " + tableName + " (" + index.ColumnName.String + ")"
+	_, err := mm.Ex.Exec(sql)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("增加索引:" + sql)
 	}
 }
 
@@ -321,17 +380,23 @@ func getTagMap(fieldTag string) map[string]string {
 	return fieldMap
 }
 
-func getColumnStr(column Column) string {
+func getColumnStr(column Column, f string) string {
 	var strArr []string
 	strArr = append(strArr, column.ColumnName.String)
-	if column.MaxLength.Int64 == 0 {
-		if column.DataType.String == "varchar" {
-			strArr = append(strArr, column.DataType.String+"(255)")
-		} else {
-			strArr = append(strArr, column.DataType.String)
-		}
+
+	//类型
+	if column.Extra.String == "auto_increment" {
+		strArr = append(strArr, "serial")
 	} else {
-		strArr = append(strArr, column.DataType.String+"("+strconv.Itoa(int(column.MaxLength.Int64))+")")
+		if column.MaxLength.Int64 == 0 {
+			if column.DataType.String == "varchar" {
+				strArr = append(strArr, column.DataType.String+"(255)")
+			} else {
+				strArr = append(strArr, f+" "+column.DataType.String)
+			}
+		} else {
+			strArr = append(strArr, column.DataType.String+"("+strconv.Itoa(int(column.MaxLength.Int64))+")")
+		}
 	}
 
 	if column.ColumnDefault.String != "" {
@@ -339,15 +404,15 @@ func getColumnStr(column Column) string {
 	}
 
 	if column.IsNullable.String == "NO" {
-		strArr = append(strArr, "NOT NULL")
+		//strArr = append(strArr, "NOT NULL")
 	}
 
 	if column.ColumnComment.String != "" {
-		strArr = append(strArr, "COMMENT '"+column.ColumnComment.String+"'")
+		//strArr = append(strArr, "COMMENT '"+column.ColumnComment.String+"'")
 	}
 
 	if column.Extra.String != "" {
-		strArr = append(strArr, column.Extra.String)
+		//strArr = append(strArr, column.Extra.String)
 	}
 
 	return strings.Join(strArr, " ")
@@ -359,16 +424,16 @@ func getIndexStr(index Index) string {
 	if "PRIMARY" == index.KeyName.String {
 		strArr = append(strArr, index.KeyName.String)
 		strArr = append(strArr, "KEY")
-		strArr = append(strArr, "(`"+index.ColumnName.String+"`)")
+		strArr = append(strArr, "("+index.ColumnName.String+")")
 	} else {
 		if 0 == index.NonUnique.Int64 {
 			strArr = append(strArr, "Unique")
 			strArr = append(strArr, index.KeyName.String)
-			strArr = append(strArr, "(`"+index.ColumnName.String+"`)")
+			strArr = append(strArr, "("+index.ColumnName.String+")")
 		} else {
 			strArr = append(strArr, "Index")
 			strArr = append(strArr, index.KeyName.String)
-			strArr = append(strArr, "(`"+index.ColumnName.String+"`)")
+			strArr = append(strArr, "("+index.ColumnName.String+")")
 		}
 	}
 
@@ -381,18 +446,25 @@ func getDataType(fieldType string, fieldMap map[string]string) string {
 	dataTypeVal, dataTypeOk := fieldMap["type"]
 	if dataTypeOk {
 		DataType = dataTypeVal
+		if "tinyint" == DataType {
+			DataType = "integer"
+		}
+		if "double" == DataType {
+			DataType = "float"
+		}
 	} else {
 		if "Int" == fieldType {
-			DataType = "int"
+			DataType = "integer"
 		}
 		if "String" == fieldType {
 			DataType = "varchar"
 		}
 		if "Bool" == fieldType {
-			DataType = "tinyint"
+			//DataType = "tinyint"
+			DataType = "boolean"
 		}
 		if "Time" == fieldType {
-			DataType = "datetime"
+			DataType = "date"
 		}
 		if "Float" == fieldType {
 			DataType = "float"

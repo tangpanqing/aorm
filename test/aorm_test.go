@@ -12,7 +12,6 @@ import (
 	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/null"
 	"testing"
-	"time"
 )
 
 type Article struct {
@@ -36,7 +35,7 @@ type Person struct {
 	Sex        null.Bool   `aorm:"index;comment:性别" json:"sex"`
 	Age        null.Int    `aorm:"index;comment:年龄" json:"age"`
 	Type       null.Int    `aorm:"index;comment:类型" json:"type"`
-	CreateTime null.Time   `aorm:"comment:创建时间" json:"createTime"`
+	CreateTime null.Int    `aorm:"comment:创建时间" json:"createTime"`
 	Money      null.Float  `aorm:"comment:金额" json:"money"`
 	Test       null.Float  `aorm:"type:double;comment:测试" json:"test"`
 }
@@ -52,7 +51,7 @@ type PersonWithArticleCount struct {
 	Sex          null.Bool   `aorm:"index;comment:性别" json:"sex"`
 	Age          null.Int    `aorm:"index;comment:年龄" json:"age"`
 	Type         null.Int    `aorm:"index;comment:类型" json:"type"`
-	CreateTime   null.Time   `aorm:"comment:创建时间" json:"createTime"`
+	CreateTime   null.Int    `aorm:"comment:创建时间" json:"createTime"`
 	Money        null.Float  `aorm:"comment:金额" json:"money"`
 	Test         null.Float  `aorm:"type:double;comment:测试" json:"test"`
 	ArticleCount null.Int    `aorm:"comment:文章数量" json:"articleCount"`
@@ -60,10 +59,10 @@ type PersonWithArticleCount struct {
 
 func TestAll(t *testing.T) {
 	dbList := make([]aorm.DbContent, 0)
-	dbList = append(dbList, testSqlite3Connect())
-	dbList = append(dbList, testMysqlConnect())
-	//dbList = append(dbList, testPostgresConnect())
-	dbList = append(dbList, testMssqlConnect())
+	//dbList = append(dbList, testSqlite3Connect())
+	//dbList = append(dbList, testMysqlConnect())
+	dbList = append(dbList, testPostgresConnect())
+	//dbList = append(dbList, testMssqlConnect())
 
 	for i := 0; i < len(dbList); i++ {
 		dbItem := dbList[i]
@@ -145,7 +144,10 @@ func testPostgresConnect() aorm.DbContent {
 		panic(postgresErr)
 	}
 
-	postgresContent.DbLink.Ping()
+	err := postgresContent.DbLink.Ping()
+	if err != nil {
+		panic(err)
+	}
 
 	return postgresContent
 }
@@ -184,12 +186,12 @@ func testInsert(name string, db *sql.DB) int64 {
 		Sex:        null.BoolFrom(false),
 		Age:        null.IntFrom(18),
 		Type:       null.IntFrom(0),
-		CreateTime: null.TimeFrom(time.Now()),
-		Money:      null.FloatFrom(100.15),
-		Test:       null.FloatFrom(200.15987654321987654321),
+		CreateTime: null.IntFrom(2),
+		Money:      null.FloatFrom(1),
+		Test:       null.FloatFrom(2),
 	}
 
-	id, errInsert := aorm.Use(db).Debug(false).Driver(name).Insert(&obj)
+	id, errInsert := aorm.Use(db).Debug(true).Driver(name).Insert(&obj)
 	if errInsert != nil {
 		panic(name + " testInsert " + "found err: " + errInsert.Error())
 	}
@@ -239,7 +241,7 @@ func testInsertBatch(name string, db *sql.DB) int64 {
 		Sex:        null.BoolFrom(false),
 		Age:        null.IntFrom(18),
 		Type:       null.IntFrom(0),
-		CreateTime: null.TimeFrom(time.Now()),
+		CreateTime: null.IntFrom(1111),
 		Money:      null.FloatFrom(100.15),
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})
@@ -249,7 +251,7 @@ func testInsertBatch(name string, db *sql.DB) int64 {
 		Sex:        null.BoolFrom(true),
 		Age:        null.IntFrom(18),
 		Type:       null.IntFrom(0),
-		CreateTime: null.TimeFrom(time.Now()),
+		CreateTime: null.IntFrom(1111),
 		Money:      null.FloatFrom(100.15),
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})

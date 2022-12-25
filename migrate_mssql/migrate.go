@@ -65,9 +65,9 @@ func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) 
 	if len(tablesFromDb) != 0 {
 		tableFromDb := tablesFromDb[0]
 		columnsFromDb := mm.getColumnsFromDb(dbName, tableName)
-		indexsFromDb := mm.getIndexesFromDb(tableName)
+		indexesFromDb := mm.getIndexesFromDb(tableName)
 
-		mm.modifyTable(tableFromCode, columnsFromCode, indexesFromCode, tableFromDb, columnsFromDb, indexsFromDb)
+		mm.modifyTable(tableFromCode, columnsFromCode, indexesFromCode, tableFromDb, columnsFromDb, indexesFromDb)
 	} else {
 		mm.createTable(tableFromCode, columnsFromCode, indexesFromCode)
 	}
