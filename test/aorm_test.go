@@ -202,7 +202,7 @@ func testInsert(name string, db *sql.DB) int64 {
 	})
 
 	var person Person
-	err := aorm.Use(db).Table("person").Debug(false).Driver(name).WhereEq("id", id).OrderBy("id", "DESC").GetOne(&person)
+	err := aorm.Use(db).Table("person").Debug(true).Driver(name).WhereEq("id", id).OrderBy("id", "DESC").GetOne(&person)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -256,9 +256,9 @@ func testInsertBatch(name string, db *sql.DB) int64 {
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})
 
-	count, err := aorm.Use(db).Debug(false).InsertBatch(&batch)
+	count, err := aorm.Use(db).Debug(true).Driver(name).InsertBatch(&batch)
 	if err != nil {
-		panic(name + "testInsertBatch" + "found err")
+		panic(name + " testInsertBatch " + "found err:" + err.Error())
 	}
 
 	return count
@@ -274,21 +274,21 @@ func testGetOne(name string, db *sql.DB, id int64) {
 
 func testGetMany(name string, db *sql.DB) {
 	var list []Person
-	errSelect := aorm.Use(db).Debug(false).Where(&Person{Type: null.IntFrom(0)}).GetMany(&list)
+	errSelect := aorm.Use(db).Driver(name).Debug(false).Where(&Person{Type: null.IntFrom(0)}).GetMany(&list)
 	if errSelect != nil {
 		panic(name + " testGetMany " + "found err:" + errSelect.Error())
 	}
 }
 
 func testUpdate(name string, db *sql.DB, id int64) {
-	_, errUpdate := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Update(&Person{Name: null.StringFrom("Bob")})
+	_, errUpdate := aorm.Use(db).Debug(false).Driver(name).Where(&Person{Id: null.IntFrom(id)}).Update(&Person{Name: null.StringFrom("Bob")})
 	if errUpdate != nil {
 		panic(name + "testGetMany" + "found err")
 	}
 }
 
 func testDelete(name string, db *sql.DB, id int64) {
-	_, errDelete := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Delete()
+	_, errDelete := aorm.Use(db).Driver(name).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Delete()
 	if errDelete != nil {
 		panic(name + "testDelete" + "found err")
 	}
@@ -303,7 +303,7 @@ func testTable(name string, db *sql.DB) {
 
 func testSelect(name string, db *sql.DB) {
 	var listByFiled []Person
-	err := aorm.Use(db).Debug(false).Select("name,age").Where(&Person{Age: null.IntFrom(18)}).GetMany(&listByFiled)
+	err := aorm.Use(db).Debug(false).Driver(name).Select("name,age").Where(&Person{Age: null.IntFrom(18)}).GetMany(&listByFiled)
 	if err != nil {
 		panic(name + " testSelect " + "found err:" + err.Error())
 	}
@@ -314,6 +314,7 @@ func testSelectWithSub(name string, db *sql.DB) {
 
 	sub := aorm.Sub().Table("article").SelectCount("id", "article_count_tem").WhereRaw("person_id", "=person.id")
 	err := aorm.Use(db).Debug(false).
+		Driver(name).
 		SelectExp(&sub, "article_count").
 		Select("*").
 		Where(&Person{Age: null.IntFrom(18)}).
@@ -331,6 +332,7 @@ func testWhereWithSub(name string, db *sql.DB) {
 
 	err := aorm.Use(db).Debug(false).
 		Table("person").
+		Driver(name).
 		WhereIn("id", &sub).
 		GetMany(&listByFiled)
 
@@ -349,7 +351,7 @@ func testWhere(name string, db *sql.DB) {
 	where1 = append(where1, builder.WhereItem{Field: "money", Opt: builder.Eq, Val: 100.15})
 	where1 = append(where1, builder.WhereItem{Field: "name", Opt: builder.Like, Val: []string{"%", "li", "%"}})
 
-	err := aorm.Use(db).Debug(false).Driver(name).Table("person").WhereArr(where1).GetMany(&listByWhere)
+	err := aorm.Use(db).Debug(true).Driver(name).Table("person").WhereArr(where1).GetMany(&listByWhere)
 	if err != nil {
 		panic(name + "testWhere" + "found err")
 	}

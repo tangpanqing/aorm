@@ -7,6 +7,7 @@ import (
 	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/model"
 	"reflect"
+	"strconv"
 	"strings"
 	"unsafe"
 )
@@ -100,8 +101,35 @@ func (ex *Builder) Insert(dest interface{}) (int64, error) {
 
 	sqlStr := "INSERT INTO " + ex.tableName + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
 
-	//如果不是mssql
-	if ex.driverName != "mssql" {
+	//如果是postgres,则转换?号到&1等
+	if ex.driverName == "postgres" {
+		sqlStr = coverSql(sqlStr)
+	}
+
+	//如果是mssql
+	if ex.driverName == "mssql" {
+		rows, err := ex.LinkCommon.Query(sqlStr+"; select ID = convert(bigint, SCOPE_IDENTITY())", paramList...)
+		if err != nil {
+			return 0, err
+		}
+		defer rows.Close()
+		var lastInsertId1 int64
+		for rows.Next() {
+			rows.Scan(&lastInsertId1)
+		}
+		return lastInsertId1, nil
+	} else if ex.driverName == "postgres" {
+		rows, err := ex.LinkCommon.Query(sqlStr+" returning id", paramList...)
+		if err != nil {
+			return 0, err
+		}
+		defer rows.Close()
+		var lastInsertId1 int64
+		for rows.Next() {
+			rows.Scan(&lastInsertId1)
+		}
+		return lastInsertId1, nil
+	} else {
 		res, err := ex.Exec(sqlStr, paramList...)
 		if err != nil {
 			return 0, err
@@ -113,18 +141,20 @@ func (ex *Builder) Insert(dest interface{}) (int64, error) {
 		}
 
 		return lastId, nil
-	} else {
-		rows, err := ex.LinkCommon.Query(sqlStr+"; select ID = convert(bigint, SCOPE_IDENTITY())", paramList...)
-		if err != nil {
-			return 0, err
-		}
-		defer rows.Close()
-		var lastInsertId1 int64
-		for rows.Next() {
-			rows.Scan(&lastInsertId1)
-		}
-		return lastInsertId1, nil
 	}
+}
+
+func coverSql(sqlStr string) string {
+	t := 1
+	for {
+		if strings.Index(sqlStr, "?") == -1 {
+			break
+		}
+		sqlStr = strings.Replace(sqlStr, "?", "$"+strconv.Itoa(t), 1)
+		t += 1
+	}
+
+	return sqlStr
 }
 
 // InsertBatch 批量增加记录
@@ -166,6 +196,10 @@ func (ex *Builder) InsertBatch(values interface{}) (int64, error) {
 	}
 
 	sqlStr := "INSERT INTO " + ex.tableName + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
+
+	if ex.driverName == "postgres" {
+		sqlStr = coverSql(sqlStr)
+	}
 
 	res, err := ex.Exec(sqlStr, paramList...)
 	if err != nil {
@@ -291,6 +325,11 @@ func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
 
 	sqlStr := "SELECT " + fieldStr + " FROM " + ex.tableName + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
 
+	//如果是postgres,则转换?号到&1等
+	if ex.driverName == "postgres" {
+		sqlStr = coverSql(sqlStr)
+	}
+
 	if ex.isDebug {
 		fmt.Println(sqlStr)
 		fmt.Println(paramList...)
@@ -306,6 +345,11 @@ func (ex *Builder) Update(dest interface{}) (int64, error) {
 	whereStr, paramList := ex.handleWhere(ex.whereList, paramList)
 	sqlStr := "UPDATE " + ex.tableName + setStr + whereStr
 
+	//如果是postgres,则转换?号到&1等
+	if ex.driverName == "postgres" {
+		sqlStr = coverSql(sqlStr)
+	}
+
 	return ex.ExecAffected(sqlStr, paramList...)
 }
 
@@ -314,6 +358,11 @@ func (ex *Builder) Delete() (int64, error) {
 	var paramList []any
 	whereStr, paramList := ex.handleWhere(ex.whereList, paramList)
 	sqlStr := "DELETE FROM " + ex.tableName + whereStr
+
+	//如果是postgres,则转换?号到&1等
+	if ex.driverName == "postgres" {
+		sqlStr = coverSql(sqlStr)
+	}
 
 	return ex.ExecAffected(sqlStr, paramList...)
 }

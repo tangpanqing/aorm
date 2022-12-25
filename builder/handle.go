@@ -103,12 +103,20 @@ func (ex *Builder) handleLimit(offset int, pageSize int, paramList []any) (strin
 		return "", paramList
 	}
 
-	paramList = append(paramList, offset)
-	paramList = append(paramList, pageSize)
+	str := ""
+	if ex.driverName == "postgres" {
+		paramList = append(paramList, pageSize)
+		paramList = append(paramList, offset)
 
-	str := " Limit ?,? "
-	if ex.driverName == "mssql" {
-		str = " offset ? rows fetch next ? rows only "
+		str = " Limit ? offset ? "
+	} else {
+		paramList = append(paramList, offset)
+		paramList = append(paramList, pageSize)
+
+		str = " Limit ?,? "
+		if ex.driverName == "mssql" {
+			str = " offset ? rows fetch next ? rows only "
+		}
 	}
 
 	return str, paramList
