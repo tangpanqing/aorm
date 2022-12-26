@@ -187,6 +187,10 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 		if columnsFromDb[j].DataType.String == "double precision" {
 			columnsFromDb[j].DataType = null.StringFrom("float")
 		}
+
+		if columnsFromDb[j].DataType.String == "timestamp without time zone" {
+			columnsFromDb[j].DataType = null.StringFrom("timestamp")
+		}
 	}
 
 	return columnsFromDb
@@ -465,6 +469,7 @@ func getDataType(fieldType string, fieldMap map[string]string) string {
 		}
 		if "Time" == fieldType {
 			DataType = "date"
+			DataType = "timestamp"
 		}
 		if "Float" == fieldType {
 			DataType = "float"
