@@ -160,8 +160,8 @@ func testPostgresConnect() aorm.DbContent {
 }
 
 func testMssqlConnect() aorm.DbContent {
-	info := fmt.Sprintf("server=%s;database=%s;user id=%s;password=%s;port=%d;encrypt=disable", "localhost", "database_name", "sa", "root", 1433)
-	mssqlContent, mssqlErr := aorm.Open("mssql", info)
+	mssqlInfo := fmt.Sprintf("server=%s;database=%s;user id=%s;password=%s;port=%d;encrypt=disable", "localhost", "database_name", "sa", "root", 1433)
+	mssqlContent, mssqlErr := aorm.Open("mssql", mssqlInfo)
 	if mssqlErr != nil {
 		panic(mssqlErr)
 	}
