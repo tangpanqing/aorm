@@ -2,6 +2,7 @@ package builder
 
 import (
 	"github.com/tangpanqing/aorm/helper"
+	"github.com/tangpanqing/aorm/model"
 	"reflect"
 	"strings"
 )
@@ -97,14 +98,14 @@ func handleOrder(orderList []string) string {
 	return " Order BY " + strings.Join(orderList, ",")
 }
 
-//拼接SQL,分页相关
+//拼接SQL,分页相关  Postgres数据库分页数量在前偏移在后，其他数据库偏移量在前分页数量在后，另外Mssql数据库的关键词是offset...next
 func (ex *Builder) handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
 	if 0 == pageSize {
 		return "", paramList
 	}
 
 	str := ""
-	if ex.driverName == "postgres" {
+	if ex.driverName == model.Postgres {
 		paramList = append(paramList, pageSize)
 		paramList = append(paramList, offset)
 
@@ -114,7 +115,7 @@ func (ex *Builder) handleLimit(offset int, pageSize int, paramList []any) (strin
 		paramList = append(paramList, pageSize)
 
 		str = " Limit ?,? "
-		if ex.driverName == "mssql" {
+		if ex.driverName == model.Mssql {
 			str = " offset ? rows fetch next ? rows only "
 		}
 	}

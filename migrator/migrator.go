@@ -40,7 +40,7 @@ func (mi *Migrator) Opinion(key string, val string) *Migrator {
 
 //ShowCreateTable 获取创建表的ddl
 func (mi *Migrator) ShowCreateTable(tableName string) string {
-	if mi.driverName == "mysql" {
+	if mi.driverName == model.Mysql {
 		me := migrate_mysql.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
@@ -69,7 +69,7 @@ func (mi *Migrator) Migrate(tableName string, dest interface{}) {
 }
 
 func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
-	if mi.driverName == "mssql" {
+	if mi.driverName == model.Mssql {
 		me := migrate_mssql.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
@@ -80,7 +80,7 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 		me.MigrateCommon(tableName, typeOf)
 	}
 
-	if mi.driverName == "mysql" {
+	if mi.driverName == model.Mysql {
 		me := migrate_mysql.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
@@ -91,7 +91,7 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 		me.MigrateCommon(tableName, typeOf)
 	}
 
-	if mi.driverName == "sqlite3" {
+	if mi.driverName == model.Sqlite3 {
 		me := migrate_sqlite3.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
@@ -102,7 +102,7 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 		me.MigrateCommon(tableName, typeOf)
 	}
 
-	if mi.driverName == "postgres" {
+	if mi.driverName == model.Postgres {
 		me := migrate_postgres.MigrateExecutor{
 			DriverName:  mi.driverName,
 			OpinionList: mi.opinionList,
