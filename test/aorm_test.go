@@ -79,7 +79,16 @@ func TestAll(t *testing.T) {
 		testGetOne(dbItem.DriverName, dbItem.DbLink, id)
 		testGetMany(dbItem.DriverName, dbItem.DbLink)
 		testUpdate(dbItem.DriverName, dbItem.DbLink, id)
+		isExists := testExists(dbItem.DriverName, dbItem.DbLink, id)
+		if isExists != true {
+			panic("应该存在，但是数据库不存在")
+		}
+
 		testDelete(dbItem.DriverName, dbItem.DbLink, id)
+		isExists2 := testExists(dbItem.DriverName, dbItem.DbLink, id)
+		if isExists2 == true {
+			panic("应该不存在，但是数据库存在")
+		}
 
 		id2 := testInsert(dbItem.DriverName, dbItem.DbLink)
 		testTable(dbItem.DriverName, dbItem.DbLink)
@@ -299,6 +308,14 @@ func testDelete(driver string, db *sql.DB, id int64) {
 	if errDelete != nil {
 		panic(driver + "testDelete" + "found err")
 	}
+}
+
+func testExists(driver string, db *sql.DB, id int64) bool {
+	exists, err := aorm.Use(db).Driver(driver).Debug(false).Where(&Person{Id: null.IntFrom(id)}).OrderBy("id", "DESC").Exists()
+	if err != nil {
+		panic(driver + " testExists " + "found err:" + err.Error())
+	}
+	return exists
 }
 
 func testTable(driver string, db *sql.DB) {

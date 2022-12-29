@@ -364,7 +364,7 @@ func (ex *Builder) Delete() (int64, error) {
 	return ex.ExecAffected(sqlStr, paramList...)
 }
 
-// Truncate 清空记录, sqlte3不支持此操作
+// Truncate 清空记录, sqlite3不支持此操作
 func (ex *Builder) Truncate() (int64, error) {
 	sqlStr := "TRUNCATE TABLE " + ex.tableName
 	if ex.driverName == model.Sqlite3 {
@@ -372,6 +372,27 @@ func (ex *Builder) Truncate() (int64, error) {
 	}
 
 	return ex.ExecAffected(sqlStr)
+}
+
+// Exists 存在某记录
+func (ex *Builder) Exists() (bool, error) {
+	var obj IntStruct
+	err := ex.Select("1 as c").Limit(0, 1).GetOne(&obj)
+	if err != nil {
+		return false, err
+	}
+
+	if obj.C.Int64 == 1 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+// DoesntExist 不存在某记录
+func (ex *Builder) DoesntExist() (bool, error) {
+	isE, err := ex.Exists()
+	return !isE, err
 }
 
 // Value 字段值
