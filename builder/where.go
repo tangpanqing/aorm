@@ -141,9 +141,9 @@ func (ex *Builder) WhereNotLike(field string, val interface{}) *Builder {
 	return ex
 }
 
-func (ex *Builder) WhereRaw(field string, val interface{}) *Builder {
+func (ex *Builder) WhereRaw(val string) *Builder {
 	ex.whereList = append(ex.whereList, WhereItem{
-		Field: field,
+		Field: "",
 		Opt:   Raw,
 		Val:   val,
 	})
