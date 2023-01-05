@@ -655,7 +655,8 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 			}
 
 			if where[i].Opt == Raw {
-				whereList = append(whereList, where[i].Field+fmt.Sprintf("%v", where[i].Val))
+				whereList = append(whereList, fmt.Sprintf("%v", where[i].Val))
+				//没有参数
 			}
 		}
 	}
