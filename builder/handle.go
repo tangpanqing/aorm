@@ -117,7 +117,7 @@ func (ex *Builder) handleGroup(paramList []any) (string, []any) {
 
 	var groupList []string
 	for i := 0; i < len(ex.groupList); i++ {
-		groupList = append(groupList, getFieldName(ex.groupList[i]))
+		groupList = append(groupList, ex.groupList[i].Prefix+"."+getFieldName(ex.groupList[i].Field))
 	}
 
 	return " GROUP BY " + strings.Join(groupList, ","), paramList

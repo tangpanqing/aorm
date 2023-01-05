@@ -461,7 +461,7 @@ func testHaving(driver string, db *sql.DB) {
 		GroupBy(&person.Age).
 		WhereEq(&person.Type, 0).
 		OrderBy(&person.Age, builder.Desc).
-		HavingGt(builder.Count, &person.Age, 4).
+		HavingGt(&personAge.AgeCount, 4).
 		GetMany(&listByHaving)
 	if err != nil {
 		panic(driver + " testHaving " + "found err")

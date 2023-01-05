@@ -55,10 +55,10 @@ func (ex *Builder) HavingNe(funcName string, field interface{}, val interface{},
 	return ex
 }
 
-func (ex *Builder) HavingGt(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
+func (ex *Builder) HavingGt(field interface{}, val interface{}, prefix ...string) *Builder {
 	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
+		FuncName: "",
+		Prefix:   "",
 		Field:    field,
 		Opt:      Gt,
 		Val:      val,

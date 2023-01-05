@@ -16,6 +16,11 @@ type FieldInfo struct {
 	Name         string
 }
 
+type GroupItem struct {
+	Prefix string
+	Field  interface{}
+}
+
 type WhereItem struct {
 	FuncName string
 	Prefix   string

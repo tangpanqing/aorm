@@ -51,7 +51,7 @@ type Builder struct {
 	tableName       string
 	selectList      []SelectItem
 	selectExpList   []*SelectItem
-	groupList       []interface{}
+	groupList       []GroupItem
 	whereList       []WhereItem
 	joinList        []JoinItem
 	havingList      []WhereItem
@@ -568,8 +568,11 @@ func (b *Builder) Table(table interface{}, alias ...string) *Builder {
 }
 
 // GroupBy 链式操作,以某字段进行分组
-func (ex *Builder) GroupBy(fieldName interface{}) *Builder {
-	ex.groupList = append(ex.groupList, fieldName)
+func (ex *Builder) GroupBy(field interface{}, prefix ...string) *Builder {
+	ex.groupList = append(ex.groupList, GroupItem{
+		Prefix: getPrefixByField(field, prefix...),
+		Field:  field,
+	})
 	return ex
 }
 
@@ -608,7 +611,11 @@ func (ex *Builder) LockForUpdate(isLockForUpdate bool) *Builder {
 func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
-		allFieldName := where[i].Prefix + "." + getFieldName(where[i].Field)
+		allFieldName := ""
+		if where[i].Prefix != "" {
+			allFieldName += where[i].Prefix + "."
+		}
+		allFieldName += getFieldName(where[i].Field)
 		if where[i].FuncName != "" {
 			allFieldName = where[i].FuncName + "(" + allFieldName + ")"
 		}
