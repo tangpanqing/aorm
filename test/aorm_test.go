@@ -119,7 +119,7 @@ func TestAll(t *testing.T) {
 		testExec(dbItem.DriverName, dbItem.DbLink)
 
 		testTransaction(dbItem.DriverName, dbItem.DbLink)
-		//testTruncate(dbItem.DriverName, dbItem.DbLink)
+		testTruncate(dbItem.DriverName, dbItem.DbLink)
 		testHelper(dbItem.DriverName, dbItem.DbLink)
 	}
 }
