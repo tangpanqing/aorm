@@ -53,7 +53,7 @@ type Builder struct {
 	whereList       []WhereItem
 	joinList        []JoinItem
 	havingList      []WhereItem
-	orderList       []string
+	orderList       []OrderItem
 	offset          int
 	pageSize        int
 	isDebug         bool
@@ -317,13 +317,12 @@ func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
 
 	var paramList []interface{}
 	tableName := getTableNameByTable(ex.table)
-
-	fieldStr, paramList := handleField(ex.selectList, ex.selectExpList, paramList)
-	whereStr, paramList := ex.handleWhere(ex.whereList, paramList)
+	fieldStr, paramList := ex.handleField(paramList)
+	whereStr, paramList := ex.handleWhere(paramList)
 	joinStr, paramList := ex.handleJoin(paramList)
 	groupStr := handleGroup(ex.groupList)
 	havingStr, paramList := ex.handleHaving(ex.havingList, paramList)
-	orderStr := handleOrder(ex.orderList)
+	orderStr, paramList := ex.handleOrder(paramList)
 	limitStr, paramList := ex.handleLimit(ex.offset, ex.pageSize, paramList)
 	lockStr := handleLockForUpdate(ex.isLockForUpdate)
 
@@ -335,7 +334,7 @@ func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
 
 	if ex.isDebug {
 		fmt.Println(sqlStr)
-		fmt.Println(paramList...)
+		//fmt.Println(paramList...)
 	}
 
 	return sqlStr, paramList
@@ -345,7 +344,7 @@ func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
 func (ex *Builder) Update(dest interface{}) (int64, error) {
 	var paramList []any
 	setStr, paramList := ex.handleSet(dest, paramList)
-	whereStr, paramList := ex.handleWhere(ex.whereList, paramList)
+	whereStr, paramList := ex.handleWhere(paramList)
 	sqlStr := "UPDATE " + ex.tableName + setStr + whereStr
 
 	if ex.driverName == model.Postgres {
@@ -358,8 +357,8 @@ func (ex *Builder) Update(dest interface{}) (int64, error) {
 // Delete 删除记录
 func (ex *Builder) Delete() (int64, error) {
 	var paramList []any
-	whereStr, paramList := ex.handleWhere(ex.whereList, paramList)
-	sqlStr := "DELETE FROM " + ex.tableName + whereStr
+	whereStr, paramList := ex.handleWhere(paramList)
+	sqlStr := "DELETE FROM " + getTableNameByTable(ex.table) + whereStr
 
 	if ex.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
@@ -382,9 +381,7 @@ func (ex *Builder) Truncate() (int64, error) {
 func (ex *Builder) Exists() (bool, error) {
 	var obj IntStruct
 
-	ex.selectCommon("", "1 as c", nil)
-
-	err := ex.Limit(0, 1).GetOne(&obj)
+	err := ex.selectCommon("", "1 as c", nil, "").Limit(0, 1).GetOne(&obj)
 	if err != nil {
 		return false, err
 	}
@@ -403,8 +400,10 @@ func (ex *Builder) DoesntExist() (bool, error) {
 }
 
 // Value 字段值
-func (ex *Builder) Value(fieldName string, dest interface{}) error {
-	ex.Select(fieldName).Limit(0, 1)
+func (ex *Builder) Value(field interface{}, dest interface{}) error {
+	ex.Select(field).Limit(0, 1)
+
+	fieldName := getFieldName(field)
 
 	rows, errRows := ex.GetRows()
 	defer rows.Close()
@@ -441,7 +440,7 @@ func (ex *Builder) Value(fieldName string, dest interface{}) error {
 }
 
 // Pluck 获取某一列的值
-func (ex *Builder) Pluck(fieldName string, values interface{}) error {
+func (ex *Builder) Pluck(fieldName interface{}, values interface{}) error {
 	ex.Select(fieldName)
 
 	rows, errRows := ex.GetRows()
@@ -483,11 +482,11 @@ func (ex *Builder) Pluck(fieldName string, values interface{}) error {
 }
 
 // Increment 某字段自增
-func (ex *Builder) Increment(fieldName string, step int) (int64, error) {
+func (ex *Builder) Increment(field interface{}, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := ex.handleWhere(ex.whereList, paramList)
-	sqlStr := "UPDATE " + ex.tableName + " SET " + fieldName + "=" + fieldName + "+?" + whereStr
+	whereStr, paramList := ex.handleWhere(paramList)
+	sqlStr := "UPDATE " + getTableNameByTable(ex.table) + " SET " + getFieldName(field) + "=" + getFieldName(field) + "+?" + whereStr
 
 	if ex.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
@@ -497,11 +496,11 @@ func (ex *Builder) Increment(fieldName string, step int) (int64, error) {
 }
 
 // Decrement 某字段自减
-func (ex *Builder) Decrement(fieldName string, step int) (int64, error) {
+func (ex *Builder) Decrement(field interface{}, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := ex.handleWhere(ex.whereList, paramList)
-	sqlStr := "UPDATE " + ex.tableName + " SET " + fieldName + "=" + fieldName + "-?" + whereStr
+	whereStr, paramList := ex.handleWhere(paramList)
+	sqlStr := "UPDATE " + getTableNameByTable(ex.table) + " SET " + getFieldName(field) + "=" + getFieldName(field) + "-?" + whereStr
 
 	if ex.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
@@ -518,7 +517,7 @@ func (ex *Builder) Exec(sqlStr string, args ...interface{}) (sql.Result, error) 
 
 	if ex.isDebug {
 		fmt.Println(sqlStr)
-		fmt.Println(args...)
+		//fmt.Println(args...)
 	}
 
 	smt, err1 := ex.LinkCommon.Prepare(sqlStr)
@@ -573,9 +572,14 @@ func (ex *Builder) GroupBy(fieldName string) *Builder {
 }
 
 // OrderBy 链式操作,以某字段进行排序
-func (ex *Builder) OrderBy(field interface{}, orderType string) *Builder {
-	//ex.orderList = append(ex.orderList, field+" "+orderType)
-	return ex
+func (b *Builder) OrderBy(field interface{}, orderType string, prefix ...string) *Builder {
+	b.orderList = append(b.orderList, OrderItem{
+		Prefix:    getPrefixByField(field, prefix...),
+		Field:     field,
+		OrderType: orderType,
+	})
+
+	return b
 }
 
 // Limit 链式操作,分页
@@ -672,7 +676,6 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 			}
 		}
 	}
-
 	return whereList, paramList
 }
 

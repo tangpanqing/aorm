@@ -79,7 +79,6 @@ func TestAll(t *testing.T) {
 		//testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
 
 		id := testInsert(dbItem.DriverName, dbItem.DbLink)
-		fmt.Println(id)
 		testInsertBatch(dbItem.DriverName, dbItem.DbLink)
 
 		testGetOne(dbItem.DriverName, dbItem.DbLink, id)
@@ -89,38 +88,40 @@ func TestAll(t *testing.T) {
 		if isExists != true {
 			panic("应该存在，但是数据库不存在")
 		}
-		//
-		//testDelete(dbItem.DriverName, dbItem.DbLink, id)
-		//isExists2 := testExists(dbItem.DriverName, dbItem.DbLink, id)
-		//if isExists2 == true {
-		//	panic("应该不存在，但是数据库存在")
-		//}
-		//
-		//id2 := testInsert(dbItem.DriverName, dbItem.DbLink)
+
+		testDelete(dbItem.DriverName, dbItem.DbLink, id)
+		isExists2 := testExists(dbItem.DriverName, dbItem.DbLink, id)
+		if isExists2 == true {
+			panic("应该不存在，但是数据库存在")
+		}
+
+		id2 := testInsert(dbItem.DriverName, dbItem.DbLink)
 		//testTable(dbItem.DriverName, dbItem.DbLink)
 		//testSelect(dbItem.DriverName, dbItem.DbLink)
 		//testSelectWithSub(dbItem.DriverName, dbItem.DbLink)
 		//testWhereWithSub(dbItem.DriverName, dbItem.DbLink)
 		//testWhere(dbItem.DriverName, dbItem.DbLink)
-		//testJoin(dbItem.DriverName, dbItem.DbLink)
+		testJoin(dbItem.DriverName, dbItem.DbLink)
+		testJoinWithAlias(dbItem.DriverName, dbItem.DbLink)
+
 		//testGroupBy(dbItem.DriverName, dbItem.DbLink)
 		//testHaving(dbItem.DriverName, dbItem.DbLink)
-		//testOrderBy(dbItem.DriverName, dbItem.DbLink)
+		testOrderBy(dbItem.DriverName, dbItem.DbLink)
+		break
 		//testLimit(dbItem.DriverName, dbItem.DbLink)
 		//testLock(dbItem.DriverName, dbItem.DbLink, id2)
-		//
-		//testIncrement(dbItem.DriverName, dbItem.DbLink, id2)
-		//testDecrement(dbItem.DriverName, dbItem.DbLink, id2)
-		//
-		//testValue(dbItem.DriverName, dbItem.DbLink, id2)
-		//
-		//testPluck(dbItem.DriverName, dbItem.DbLink)
-		//
-		//testCount(dbItem.DriverName, dbItem.DbLink)
-		//testSum(dbItem.DriverName, dbItem.DbLink)
-		//testAvg(dbItem.DriverName, dbItem.DbLink)
-		//testMin(dbItem.DriverName, dbItem.DbLink)
-		//testMax(dbItem.DriverName, dbItem.DbLink)
+
+		testIncrement(dbItem.DriverName, dbItem.DbLink, id2)
+		testDecrement(dbItem.DriverName, dbItem.DbLink, id2)
+
+		testValue(dbItem.DriverName, dbItem.DbLink, id2)
+		testPluck(dbItem.DriverName, dbItem.DbLink)
+
+		testCount(dbItem.DriverName, dbItem.DbLink)
+		testSum(dbItem.DriverName, dbItem.DbLink)
+		testAvg(dbItem.DriverName, dbItem.DbLink)
+		testMin(dbItem.DriverName, dbItem.DbLink)
+		testMax(dbItem.DriverName, dbItem.DbLink)
 		//
 		//testExec(dbItem.DriverName, dbItem.DbLink)
 		//
@@ -310,14 +311,14 @@ func testUpdate(driver string, db *sql.DB, id int64) {
 }
 
 func testDelete(driver string, db *sql.DB, id int64) {
-	_, errDelete := aorm.Use(db).Driver(driver).Debug(true).WhereEq(&person.Id, id).Delete()
+	_, errDelete := aorm.Use(db).Driver(driver).Debug(true).Table(&person).WhereEq(&person.Id, id).Delete()
 	if errDelete != nil {
 		panic(driver + "testDelete" + "found err")
 	}
 }
 
 func testExists(driver string, db *sql.DB, id int64) bool {
-	exists, err := aorm.Use(db).Driver(driver).Debug(true).Table(&person).WhereEq(&person.Id, id).OrderBy("id", "DESC").Exists()
+	exists, err := aorm.Use(db).Driver(driver).Debug(true).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).Exists()
 	if err != nil {
 		panic(driver + " testExists " + "found err:" + err.Error())
 	}
@@ -388,23 +389,46 @@ func testExists(driver string, db *sql.DB, id int64) bool {
 //	}
 //}
 
-//func testJoin(driver string, db *sql.DB) {
-//	var list2 []ArticleVO
-//	var where2 []builder.WhereItem
-//	where2 = append(where2, builder.WhereItem{Field: "o.type", Opt: builder.Eq, Val: 0})
-//	where2 = append(where2, builder.WhereItem{Field: "p.age", Opt: builder.In, Val: []int{18, 20}})
-//	err := aorm.Use(db).Debug(false).
-//		Table("article o").
-//		LeftJoin("person p", "p.id=o.person_id").
-//		Select("o.*").
-//		Select("p.name as person_name").
-//		WhereArr(where2).
-//		Driver(driver).
-//		GetMany(&list2)
-//	if err != nil {
-//		panic(driver + " testWhere " + "found err " + err.Error())
-//	}
-//}
+func testJoin(driver string, db *sql.DB) {
+	var list2 []ArticleVO
+	err := aorm.Use(db).Debug(true).Driver(driver).
+		Table(&article).
+		LeftJoin(
+			&person,
+			[]builder.JoinCondition{
+				builder.GenJoinCondition(&person.Id, builder.RawEq, &article.PersonId),
+			},
+		).
+		SelectAll(&article).
+		SelectAs(&person.Name, &articleVO.PersonName).
+		WhereEq(&article.Type, 0).
+		WhereIn(&person.Age, []int{18, 20}).
+		GetMany(&list2)
+	if err != nil {
+		panic(driver + " testWhere " + "found err " + err.Error())
+	}
+}
+
+func testJoinWithAlias(driver string, db *sql.DB) {
+	var list2 []ArticleVO
+	err := aorm.Use(db).Debug(true).Driver(driver).
+		Table(&article, "o").
+		LeftJoin(
+			&person,
+			[]builder.JoinCondition{
+				builder.GenJoinCondition(&person.Id, builder.RawEq, &article.PersonId, "o"),
+			},
+			"p",
+		).
+		Select("*", "o").
+		SelectAs(&person.Name, &articleVO.PersonName, "p").
+		WhereEq(&article.Type, 0, "o").
+		WhereIn(&person.Age, []int{18, 20}, "p").
+		GetMany(&list2)
+	if err != nil {
+		panic(driver + " testWhere " + "found err " + err.Error())
+	}
+}
 
 //func testGroupBy(driver string, db *sql.DB) {
 //	var personAge PersonAge
@@ -448,20 +472,28 @@ func testExists(driver string, db *sql.DB, id int64) bool {
 //	}
 //}
 //
-//func testOrderBy(driver string, db *sql.DB) {
-//	var listByOrder []Person
-//	var where []builder.WhereItem
-//	where = append(where, builder.WhereItem{Field: "type", Opt: builder.Eq, Val: 0})
-//	err := aorm.Use(db).Debug(false).
-//		Table("person").
-//		WhereArr(where).
-//		OrderBy("age", builder.Desc).
-//		Driver(driver).
-//		GetMany(&listByOrder)
-//	if err != nil {
-//		panic(driver + "testOrderBy" + "found err")
-//	}
-//}
+func testOrderBy(driver string, db *sql.DB) {
+	var listByOrder []Person
+	err := aorm.Use(db).Debug(true).Driver(driver).
+		Table(&person).
+		WhereEq(&person.Type, 0).
+		OrderBy(&person.Age, builder.Desc).
+		GetMany(&listByOrder)
+	if err != nil {
+		panic(driver + "testOrderBy" + "found err")
+	}
+
+	var listByOrder2 []Person
+	err2 := aorm.Use(db).Debug(true).Driver(driver).
+		Table(&person, "o").
+		WhereEq(&person.Type, 0, "o").
+		OrderBy(&person.Age, builder.Desc, "o").
+		GetMany(&listByOrder2)
+	if err2 != nil {
+		panic(driver + "testOrderBy" + "found err")
+	}
+}
+
 //
 //func testLimit(driver string, db *sql.DB) {
 //	var list3 []Person
@@ -511,108 +543,110 @@ func testExists(driver string, db *sql.DB, id int64) bool {
 //	}
 //}
 //
-//func testIncrement(driver string, db *sql.DB, id int64) {
-//	_, err := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Driver(driver).Increment("age", 1)
-//	if err != nil {
-//		panic(driver + " testIncrement " + "found err:" + err.Error())
-//	}
-//}
+func testIncrement(driver string, db *sql.DB, id int64) {
+	_, err := aorm.Use(db).Debug(true).Driver(driver).Table(&person).WhereEq(&person.Id, id).Increment(&person.Age, 1)
+	if err != nil {
+		panic(driver + " testIncrement " + "found err:" + err.Error())
+	}
+}
+
+func testDecrement(driver string, db *sql.DB, id int64) {
+	_, err := aorm.Use(db).Debug(true).Driver(driver).Table(&person).WhereEq(&person.Id, id).Decrement(&person.Age, 2)
+	if err != nil {
+		panic(driver + "testDecrement" + "found err")
+	}
+}
+
+func testValue(driver string, db *sql.DB, id int64) {
+
+	var name string
+	errName := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Name, &name)
+	if errName != nil {
+		panic(driver + "testValue" + "found err")
+	}
+
+	var age int64
+	errAge := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Age, &age)
+	if errAge != nil {
+		panic(driver + "testValue" + "found err")
+	}
+
+	var money float32
+	errMoney := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Money, &money)
+	if errMoney != nil {
+		panic(driver + "testValue" + "found err")
+	}
+
+	var test float64
+	errTest := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Test, &test)
+	if errTest != nil {
+		panic(driver + "testValue" + "found err")
+	}
+}
+
+func testPluck(driver string, db *sql.DB) {
+	var nameList []string
+	errNameList := aorm.Use(db).Debug(true).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Name, &nameList)
+	if errNameList != nil {
+		panic(driver + "testPluck" + "found err")
+	}
+
+	var ageList []int64
+	errAgeList := aorm.Use(db).Debug(true).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Age, &ageList)
+	if errAgeList != nil {
+		panic(driver + "testPluck" + "found err:" + errAgeList.Error())
+	}
+
+	var moneyList []float32
+	errMoneyList := aorm.Use(db).Debug(true).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Money, &moneyList)
+	if errMoneyList != nil {
+		panic(driver + "testPluck" + "found err")
+	}
+
+	var testList []float64
+	errTestList := aorm.Use(db).Debug(true).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Test, &testList)
+	if errTestList != nil {
+		panic(driver + "testPluck" + "found err")
+	}
+}
+
 //
-//func testDecrement(driver string, db *sql.DB, id int64) {
-//	_, err := aorm.Use(db).Debug(false).Where(&Person{Id: null.IntFrom(id)}).Driver(driver).Decrement("age", 2)
-//	if err != nil {
-//		panic(driver + "testDecrement" + "found err")
-//	}
-//}
+func testCount(driver string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(true).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Count("*")
+	if err != nil {
+		panic(driver + "testCount" + "found err")
+	}
+}
+
 //
-//func testValue(driver string, db *sql.DB, id int64) {
-//
-//	var name string
-//	errName := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("name", &name)
-//	if errName != nil {
-//		panic(driver + "testValue" + "found err")
-//	}
-//
-//	var age int64
-//	errAge := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("age", &age)
-//	if errAge != nil {
-//		panic(driver + "testValue" + "found err")
-//	}
-//
-//	var money float32
-//	errMoney := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("money", &money)
-//	if errMoney != nil {
-//		panic(driver + "testValue" + "found err")
-//	}
-//
-//	var test float64
-//	errTest := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Id: null.IntFrom(id)}).Value("test", &test)
-//	if errTest != nil {
-//		panic(driver + "testValue" + "found err")
-//	}
-//}
-//
-//func testPluck(driver string, db *sql.DB) {
-//
-//	var nameList []string
-//	errNameList := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("name", &nameList)
-//	if errNameList != nil {
-//		panic(driver + "testPluck" + "found err")
-//	}
-//
-//	var ageList []int64
-//	errAgeList := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("age", &ageList)
-//	if errAgeList != nil {
-//		panic(driver + "testPluck" + "found err:" + errAgeList.Error())
-//	}
-//
-//	var moneyList []float32
-//	errMoneyList := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("money", &moneyList)
-//	if errMoneyList != nil {
-//		panic(driver + "testPluck" + "found err")
-//	}
-//
-//	var testList []float64
-//	errTestList := aorm.Use(db).Debug(false).Driver(driver).OrderBy("id", "DESC").Where(&Person{Type: null.IntFrom(0)}).Limit(0, 3).Pluck("test", &testList)
-//	if errTestList != nil {
-//		panic(driver + "testPluck" + "found err")
-//	}
-//}
-//
-//func testCount(driver string, db *sql.DB) {
-//	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: null.IntFrom(18)}).Driver(driver).Count("*")
-//	if err != nil {
-//		panic(driver + "testCount" + "found err")
-//	}
-//}
-//
-//func testSum(driver string, db *sql.DB) {
-//	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: null.IntFrom(18)}).Driver(driver).Sum("age")
-//	if err != nil {
-//		panic(driver + "testSum" + "found err")
-//	}
-//}
-//
-//func testAvg(driver string, db *sql.DB) {
-//	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: null.IntFrom(18)}).Driver(driver).Avg("age")
-//	if err != nil {
-//		panic(driver + "testAvg" + "found err")
-//	}
-//}
-//
-//func testMin(driver string, db *sql.DB) {
-//	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: null.IntFrom(18)}).Driver(driver).Min("age")
-//	if err != nil {
-//		panic(driver + "testMin" + "found err")
-//	}
-//}
-//
-//func testMax(driver string, db *sql.DB) {
-//	_, err := aorm.Use(db).Debug(false).Where(&Person{Age: null.IntFrom(18)}).Driver(driver).Max("age")
-//	if err != nil {
-//		panic(driver + "testMax" + "found err")
-//	}
-//}
+func testSum(driver string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Sum(&person.Age)
+	if err != nil {
+		panic(driver + "testSum" + "found err")
+	}
+}
+
+func testAvg(driver string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(true).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Avg(&person.Age)
+	if err != nil {
+		panic(driver + "testAvg" + "found err")
+	}
+}
+
+func testMin(driver string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Min(&person.Age)
+	if err != nil {
+		panic(driver + "testMin" + "found err")
+	}
+}
+
+func testMax(driver string, db *sql.DB) {
+	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Max(&person.Age)
+	if err != nil {
+		panic(driver + "testMax" + "found err")
+	}
+}
+
 //
 //func testExec(driver string, db *sql.DB) {
 //	_, err := aorm.Use(db).Debug(false).Driver(driver).Exec("UPDATE person SET name = ? WHERE id=?", "Bob", 3)

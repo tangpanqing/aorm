@@ -37,6 +37,12 @@ type JoinItem struct {
 	condition  []JoinCondition
 }
 
+type OrderItem struct {
+	Prefix    string
+	Field     interface{}
+	OrderType string
+}
+
 type JoinCondition struct {
 	FieldOfCurrentTable interface{}
 	Opt                 string
@@ -214,7 +220,12 @@ func getWhereStrForJoin(aliasOfCurrentTable string, joinCondition []JoinConditio
 }
 
 func getFieldName(field interface{}) string {
-	return UnderLine(FieldMap[reflect.ValueOf(field).Pointer()].Name)
+	valueOf := reflect.ValueOf(field)
+	if reflect.Ptr == valueOf.Kind() {
+		return UnderLine(FieldMap[reflect.ValueOf(field).Pointer()].Name)
+	} else {
+		return fmt.Sprintf("%v", field)
+	}
 }
 
 func getWhereStr(whereList []WhereItem, paramList []interface{}) (string, []interface{}) {

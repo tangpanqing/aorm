@@ -13,7 +13,7 @@ type FloatStruct struct {
 // Count 聚合函数-数量
 func (ex *Builder) Count(fieldName string) (int64, error) {
 	var obj []IntStruct
-	err := ex.SelectCount(fieldName, "c").GetMany(&obj)
+	err := ex.SelectCount(fieldName, "c", "").GetMany(&obj)
 	if err != nil {
 		return 0, err
 	}
@@ -22,7 +22,7 @@ func (ex *Builder) Count(fieldName string) (int64, error) {
 }
 
 // Sum 聚合函数-合计
-func (ex *Builder) Sum(fieldName string) (float64, error) {
+func (ex *Builder) Sum(fieldName interface{}) (float64, error) {
 	var obj []FloatStruct
 	err := ex.SelectSum(fieldName, "c").GetMany(&obj)
 	if err != nil {
@@ -33,7 +33,7 @@ func (ex *Builder) Sum(fieldName string) (float64, error) {
 }
 
 // Avg 聚合函数-平均值
-func (ex *Builder) Avg(fieldName string) (float64, error) {
+func (ex *Builder) Avg(fieldName interface{}) (float64, error) {
 	var obj []FloatStruct
 	err := ex.SelectAvg(fieldName, "c").GetMany(&obj)
 	if err != nil {
@@ -44,7 +44,7 @@ func (ex *Builder) Avg(fieldName string) (float64, error) {
 }
 
 // Max 聚合函数-最大值
-func (ex *Builder) Max(fieldName string) (float64, error) {
+func (ex *Builder) Max(fieldName interface{}) (float64, error) {
 	var obj []FloatStruct
 	err := ex.SelectMax(fieldName, "c").GetMany(&obj)
 	if err != nil {
@@ -55,7 +55,7 @@ func (ex *Builder) Max(fieldName string) (float64, error) {
 }
 
 // Min 聚合函数-最小值
-func (ex *Builder) Min(fieldName string) (float64, error) {
+func (ex *Builder) Min(fieldName interface{}) (float64, error) {
 	var obj []FloatStruct
 	err := ex.SelectMin(fieldName, "c").GetMany(&obj)
 	if err != nil {

@@ -1,7 +1,7 @@
 package builder
 
-func (b *Builder) SelectAll(prefix ...string) *Builder {
-	return b.selectCommon("", "*", nil, prefix...)
+func (b *Builder) SelectAll(table interface{}) *Builder {
+	return b.selectCommon("", "*", nil, getTableNameByTable(table))
 }
 
 // Select 链式操作-查询哪些字段,默认 *
