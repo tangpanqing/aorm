@@ -12,6 +12,8 @@ import (
 	"unsafe"
 )
 
+const Count = "COUNT"
+
 const Desc = "DESC"
 const Asc = "ASC"
 
@@ -49,7 +51,7 @@ type Builder struct {
 	tableName       string
 	selectList      []SelectItem
 	selectExpList   []*SelectItem
-	groupList       []string
+	groupList       []interface{}
 	whereList       []WhereItem
 	joinList        []JoinItem
 	havingList      []WhereItem
@@ -320,8 +322,8 @@ func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
 	fieldStr, paramList := ex.handleField(paramList)
 	whereStr, paramList := ex.handleWhere(paramList)
 	joinStr, paramList := ex.handleJoin(paramList)
-	groupStr := handleGroup(ex.groupList)
-	havingStr, paramList := ex.handleHaving(ex.havingList, paramList)
+	groupStr, paramList := ex.handleGroup(paramList)
+	havingStr, paramList := ex.handleHaving(paramList)
 	orderStr, paramList := ex.handleOrder(paramList)
 	limitStr, paramList := ex.handleLimit(ex.offset, ex.pageSize, paramList)
 	lockStr := handleLockForUpdate(ex.isLockForUpdate)
@@ -566,7 +568,7 @@ func (b *Builder) Table(table interface{}, alias ...string) *Builder {
 }
 
 // GroupBy 链式操作,以某字段进行分组
-func (ex *Builder) GroupBy(fieldName string) *Builder {
+func (ex *Builder) GroupBy(fieldName interface{}) *Builder {
 	ex.groupList = append(ex.groupList, fieldName)
 	return ex
 }
@@ -606,15 +608,17 @@ func (ex *Builder) LockForUpdate(isLockForUpdate bool) *Builder {
 func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
-		prefix := where[i].Prefix
-		fieldName := getFieldName(where[i].Field)
+		allFieldName := where[i].Prefix + "." + getFieldName(where[i].Field)
+		if where[i].FuncName != "" {
+			allFieldName = where[i].FuncName + "(" + allFieldName + ")"
+		}
 
 		if "**builder.Builder" == reflect.TypeOf(where[i].Val).String() {
 			executor := *(**Builder)(unsafe.Pointer(reflect.ValueOf(where[i].Val).Pointer()))
 			subSql, subParams := executor.GetSqlAndParams()
 
 			if where[i].Opt != Raw {
-				whereList = append(whereList, prefix+"."+fieldName+" "+where[i].Opt+" "+"("+subSql+")")
+				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"("+subSql+")")
 				paramList = append(paramList, subParams...)
 			} else {
 
@@ -622,15 +626,15 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 		} else {
 			if where[i].Opt == Eq || where[i].Opt == Ne || where[i].Opt == Gt || where[i].Opt == Ge || where[i].Opt == Lt || where[i].Opt == Le {
 				if ex.driverName == model.Sqlite3 {
-					whereList = append(whereList, prefix+"."+fieldName+" "+where[i].Opt+" "+"?")
+					whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"?")
 				} else {
 					switch where[i].Val.(type) {
 					case float32:
-						whereList = append(whereList, ex.getConcatForFloat(prefix+"."+fieldName, "''")+" "+where[i].Opt+" "+"?")
+						whereList = append(whereList, ex.getConcatForFloat(allFieldName, "''")+" "+where[i].Opt+" "+"?")
 					case float64:
-						whereList = append(whereList, ex.getConcatForFloat(prefix+"."+fieldName, "''")+" "+where[i].Opt+" "+"?")
+						whereList = append(whereList, ex.getConcatForFloat(allFieldName, "''")+" "+where[i].Opt+" "+"?")
 					default:
-						whereList = append(whereList, prefix+"."+fieldName+" "+where[i].Opt+" "+"?")
+						whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"?")
 					}
 				}
 
@@ -639,7 +643,7 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 
 			if where[i].Opt == Between || where[i].Opt == NotBetween {
 				values := toAnyArr(where[i].Val)
-				whereList = append(whereList, prefix+"."+fieldName+" "+where[i].Opt+" "+"(?) AND (?)")
+				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"(?) AND (?)")
 				paramList = append(paramList, values...)
 			}
 
@@ -657,7 +661,7 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 					}
 				}
 
-				whereList = append(whereList, prefix+"."+fieldName+" "+where[i].Opt+" "+ex.getConcatForLike(valueStr...))
+				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+ex.getConcatForLike(valueStr...))
 			}
 
 			if where[i].Opt == In || where[i].Opt == NotIn {
@@ -667,12 +671,12 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 					placeholder = append(placeholder, "?")
 				}
 
-				whereList = append(whereList, prefix+"."+fieldName+" "+where[i].Opt+" "+"("+strings.Join(placeholder, ",")+")")
+				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"("+strings.Join(placeholder, ",")+")")
 				paramList = append(paramList, values...)
 			}
 
 			if where[i].Opt == Raw {
-				whereList = append(whereList, prefix+"."+fieldName+fmt.Sprintf("%v", where[i].Val))
+				whereList = append(whereList, allFieldName+fmt.Sprintf("%v", where[i].Val))
 			}
 		}
 	}

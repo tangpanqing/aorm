@@ -17,10 +17,11 @@ type FieldInfo struct {
 }
 
 type WhereItem struct {
-	Prefix string
-	Field  interface{}
-	Opt    string
-	Val    interface{}
+	FuncName string
+	Prefix   string
+	Field    interface{}
+	Opt      string
+	Val      interface{}
 }
 
 type SelectItem struct {

@@ -59,9 +59,9 @@ func (ex *Builder) handleWhere(paramList []any) (string, []any) {
 		return "", paramList
 	}
 
-	whereList, paramList := ex.whereAndHaving(ex.whereList, paramList)
+	strList, paramList := ex.whereAndHaving(ex.whereList, paramList)
 
-	return " WHERE " + strings.Join(whereList, " AND "), paramList
+	return " WHERE " + strings.Join(strList, " AND "), paramList
 }
 
 //拼接SQL,更新信息
@@ -110,23 +110,28 @@ func (b *Builder) handleJoin(paramList []interface{}) (string, []interface{}) {
 }
 
 //拼接SQL,结果分组
-func handleGroup(groupList []string) string {
-	if len(groupList) == 0 {
-		return ""
-	}
-
-	return " GROUP BY " + strings.Join(groupList, ",")
-}
-
-//拼接SQL,结果筛选
-func (ex *Builder) handleHaving(having []WhereItem, paramList []any) (string, []any) {
-	if len(having) == 0 {
+func (ex *Builder) handleGroup(paramList []any) (string, []any) {
+	if len(ex.groupList) == 0 {
 		return "", paramList
 	}
 
-	whereList, paramList := ex.whereAndHaving(having, paramList)
+	var groupList []string
+	for i := 0; i < len(ex.groupList); i++ {
+		groupList = append(groupList, getFieldName(ex.groupList[i]))
+	}
 
-	return " Having " + strings.Join(whereList, " AND "), paramList
+	return " GROUP BY " + strings.Join(groupList, ","), paramList
+}
+
+//拼接SQL,结果筛选
+func (ex *Builder) handleHaving(paramList []any) (string, []any) {
+	if len(ex.havingList) == 0 {
+		return "", paramList
+	}
+
+	strList, paramList := ex.whereAndHaving(ex.havingList, paramList)
+
+	return " Having " + strings.Join(strList, " AND "), paramList
 }
 
 //拼接SQL,结果排序
