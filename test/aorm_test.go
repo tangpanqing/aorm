@@ -336,7 +336,7 @@ func testSelect(driver string, db *sql.DB) {
 func testSelectWithSub(driver string, db *sql.DB) {
 	var listByFiled []PersonWithArticleCount
 
-	sub := aorm.Sub().Table("article").SelectCount("id", "article_count_tem").WhereRaw("person_id", "=person.id")
+	sub := aorm.Sub().Table("article").SelectCount("id", "article_count_tem").WhereRaw("person_id=person.id")
 	err := aorm.Use(db).Debug(false).
 		Driver(driver).
 		SelectExp(&sub, "article_count").
