@@ -8,20 +8,21 @@ import (
 )
 
 //拼接SQL,字段相关
-func handleField(selectList []string, selectExpList []*SelectItem, paramList []any) (string, []any) {
+func handleField(selectList []SelectItem, selectExpList []*SelectItem, paramList []any) (string, []any) {
 	if len(selectList) == 0 && len(selectExpList) == 0 {
 		return "*", paramList
 	}
 
 	//处理子语句
-	for i := 0; i < len(selectExpList); i++ {
-		executor := *(selectExpList[i].Executor)
-		subSql, subParamList := executor.GetSqlAndParams()
-		selectList = append(selectList, "("+subSql+") AS "+selectExpList[i].FieldName)
-		paramList = append(paramList, subParamList...)
-	}
+	//for i := 0; i < len(selectExpList); i++ {
+	//	executor := *(selectExpList[i].Executor)
+	//	subSql, subParamList := executor.GetSqlAndParams()
+	//	selectList = append(selectList, "("+subSql+") AS "+selectExpList[i].FieldName)
+	//	paramList = append(paramList, subParamList...)
+	//}
+	var strList []string
 
-	return strings.Join(selectList, ","), paramList
+	return strings.Join(strList, ","), paramList
 }
 
 //拼接SQL,查询条件
@@ -61,12 +62,23 @@ func (ex *Builder) handleSet(dest interface{}, paramList []any) (string, []any) 
 }
 
 //拼接SQL,关联查询
-func handleJoin(joinList []string) string {
-	if len(joinList) == 0 {
-		return ""
+func (b *Builder) handleJoin(paramList []interface{}) (string, []interface{}) {
+	if len(b.joinList) == 0 {
+		return "", paramList
 	}
 
-	return " " + strings.Join(joinList, " ")
+	var sqlList []string
+	for i := 0; i < len(b.joinList); i++ {
+		joinItem := b.joinList[i]
+
+		str, paramList2 := getWhereStrForJoin(joinItem.tableAlias, joinItem.condition, paramList)
+		paramList = append(paramList, paramList2...)
+
+		sqlItem := joinItem.joinType + " " + getTableNameByTable(joinItem.table) + " " + joinItem.tableAlias + " ON " + str
+		sqlList = append(sqlList, sqlItem)
+	}
+
+	return " " + strings.Join(sqlList, " "), paramList
 }
 
 //拼接SQL,结果分组

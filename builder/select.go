@@ -1,46 +1,59 @@
 package builder
 
+func (b *Builder) SelectAll(prefix ...string) *Builder {
+	return b.selectCommon("", "*", nil, prefix...)
+}
+
 // Select 链式操作-查询哪些字段,默认 *
-func (ex *Builder) Select(fields ...string) *Builder {
-	ex.selectList = append(ex.selectList, fields...)
-	return ex
+func (b *Builder) Select(field interface{}, prefix ...string) *Builder {
+	return b.selectCommon("", field, nil, prefix...)
+}
+
+func (b *Builder) SelectAs(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("", field, fieldNew, prefix...)
 }
 
 // SelectCount 链式操作-count(field) as field_new
-func (ex *Builder) SelectCount(field string, fieldNew string) *Builder {
-	ex.selectList = append(ex.selectList, "count("+field+") AS "+fieldNew)
-	return ex
+func (b *Builder) SelectCount(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("count", field, fieldNew, prefix...)
 }
 
 // SelectSum 链式操作-sum(field) as field_new
-func (ex *Builder) SelectSum(field string, fieldNew string) *Builder {
-	ex.selectList = append(ex.selectList, "sum("+field+") AS "+fieldNew)
-	return ex
+func (b *Builder) SelectSum(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("sum", field, fieldNew, prefix...)
 }
 
 // SelectMin 链式操作-min(field) as field_new
-func (ex *Builder) SelectMin(field string, fieldNew string) *Builder {
-	ex.selectList = append(ex.selectList, "min("+field+") AS "+fieldNew)
-	return ex
+func (b *Builder) SelectMin(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("min", field, fieldNew, prefix...)
 }
 
 // SelectMax 链式操作-max(field) as field_new
-func (ex *Builder) SelectMax(field string, fieldNew string) *Builder {
-	ex.selectList = append(ex.selectList, "max("+field+") AS "+fieldNew)
-	return ex
+func (b *Builder) SelectMax(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("max", field, fieldNew, prefix...)
 }
 
 // SelectAvg 链式操作-avg(field) as field_new
-func (ex *Builder) SelectAvg(field string, fieldNew string) *Builder {
-	ex.selectList = append(ex.selectList, "avg("+field+") AS "+fieldNew)
-	return ex
+func (b *Builder) SelectAvg(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("avg", field, fieldNew, prefix...)
+}
+
+func (b *Builder) selectCommon(funcName string, field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	b.selectList = append(b.selectList, SelectItem{
+		funcName,
+		getPrefixByField(field, prefix...),
+		field,
+		fieldNew,
+	})
+
+	return b
 }
 
 // SelectExp 链式操作-表达式
-func (ex *Builder) SelectExp(dbSub **Builder, fieldName string) *Builder {
-	ex.selectExpList = append(ex.selectExpList, &SelectItem{
-		Executor:  dbSub,
-		FieldName: fieldName,
-	})
-	return ex
+func (b *Builder) SelectExp(dbSub **Builder, fieldName string) *Builder {
+	//ex.selectExpList = append(ex.selectExpList, &SelectItem{
+	//	Executor:  dbSub,
+	//	FieldName: fieldName,
+	//})
+	return b
 }

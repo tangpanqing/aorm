@@ -13,6 +13,10 @@ type DbContent struct {
 	DbLink     *sql.DB
 }
 
+func Store(destList ...interface{}) {
+	builder.Store(destList...)
+}
+
 //Open 开始一个数据库连接
 func Open(driverName string, dataSourceName string) (DbContent, error) {
 	db, err := sql.Open(driverName, dataSourceName)
