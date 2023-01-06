@@ -8,22 +8,22 @@ import (
 )
 
 //拼接SQL,字段相关
-func (ex *Builder) handleField(paramList []any) (string, []any) {
-	if len(ex.selectList) == 0 && len(ex.selectExpList) == 0 {
-		return "*", paramList
+func (b *Builder) handleField(paramList []any) (string, []any) {
+	fieldStr := ""
+	if b.distinct {
+		fieldStr += "DISTINCT "
 	}
 
-	//处理子语句
-	//for i := 0; i < len(selectExpList); i++ {
-	//	executor := *(selectExpList[i].Executor)
-	//	subSql, subParamList := executor.GetSqlAndParams()
-	//	selectList = append(selectList, "("+subSql+") AS "+selectExpList[i].FieldName)
-	//	paramList = append(paramList, subParamList...)
-	//}
+	if len(b.selectList) == 0 && len(b.selectExpList) == 0 {
+		fieldStr += "*"
+		return fieldStr, paramList
+	}
+
 	var strList []string
 
-	for i := 0; i < len(ex.selectList); i++ {
-		selectItem := ex.selectList[i]
+	//处理一般的参数
+	for i := 0; i < len(b.selectList); i++ {
+		selectItem := b.selectList[i]
 
 		str := ""
 		if selectItem.FuncName != "" {
@@ -50,28 +50,35 @@ func (ex *Builder) handleField(paramList []any) (string, []any) {
 		strList = append(strList, str)
 	}
 
-	return strings.Join(strList, ","), paramList
+	//处理子语句
+	for i := 0; i < len(b.selectExpList); i++ {
+		executor := *(b.selectExpList[i].Executor)
+		subSql, subParamList := executor.GetSqlAndParams()
+		strList = append(strList, "("+subSql+") AS "+getFieldName(b.selectExpList[i].FieldName))
+		paramList = append(paramList, subParamList...)
+	}
+
+	fieldStr += strings.Join(strList, ",")
+	return fieldStr, paramList
 }
 
 //拼接SQL,查询条件
-func (ex *Builder) handleWhere(paramList []any) (string, []any) {
-	if len(ex.whereList) == 0 {
+func (b *Builder) handleWhere(paramList []any) (string, []any) {
+	if len(b.whereList) == 0 {
 		return "", paramList
 	}
 
-	strList, paramList := ex.whereAndHaving(ex.whereList, paramList)
+	strList, paramList := b.whereAndHaving(b.whereList, paramList)
 
 	return " WHERE " + strings.Join(strList, " AND "), paramList
 }
 
 //拼接SQL,更新信息
-func (ex *Builder) handleSet(dest interface{}, paramList []any) (string, []any) {
-	typeOf := reflect.TypeOf(dest)
-	valueOf := reflect.ValueOf(dest)
+func (b *Builder) handleSet(typeOf reflect.Type, valueOf reflect.Value, paramList []any) (string, []any) {
 
 	//如果没有设置表名
-	if ex.tableName == "" {
-		ex.tableName = getTableName(typeOf, valueOf)
+	if b.tableName == "" {
+		b.tableName = getTableName(typeOf, valueOf)
 	}
 
 	var keys []string
@@ -110,52 +117,52 @@ func (b *Builder) handleJoin(paramList []interface{}) (string, []interface{}) {
 }
 
 //拼接SQL,结果分组
-func (ex *Builder) handleGroup(paramList []any) (string, []any) {
-	if len(ex.groupList) == 0 {
+func (b *Builder) handleGroup(paramList []any) (string, []any) {
+	if len(b.groupList) == 0 {
 		return "", paramList
 	}
 
 	var groupList []string
-	for i := 0; i < len(ex.groupList); i++ {
-		groupList = append(groupList, ex.groupList[i].Prefix+"."+getFieldName(ex.groupList[i].Field))
+	for i := 0; i < len(b.groupList); i++ {
+		groupList = append(groupList, b.groupList[i].Prefix+"."+getFieldName(b.groupList[i].Field))
 	}
 
 	return " GROUP BY " + strings.Join(groupList, ","), paramList
 }
 
 //拼接SQL,结果筛选
-func (ex *Builder) handleHaving(paramList []any) (string, []any) {
-	if len(ex.havingList) == 0 {
+func (b *Builder) handleHaving(paramList []any) (string, []any) {
+	if len(b.havingList) == 0 {
 		return "", paramList
 	}
 
-	strList, paramList := ex.whereAndHaving(ex.havingList, paramList)
+	strList, paramList := b.whereAndHaving(b.havingList, paramList)
 
 	return " Having " + strings.Join(strList, " AND "), paramList
 }
 
 //拼接SQL,结果排序
-func (ex *Builder) handleOrder(paramList []any) (string, []any) {
-	if len(ex.orderList) == 0 {
+func (b *Builder) handleOrder(paramList []any) (string, []any) {
+	if len(b.orderList) == 0 {
 		return "", paramList
 	}
 
 	var orderList []string
-	for i := 0; i < len(ex.orderList); i++ {
-		orderList = append(orderList, ex.orderList[i].Prefix+"."+getFieldName(ex.orderList[i].Field)+" "+ex.orderList[i].OrderType)
+	for i := 0; i < len(b.orderList); i++ {
+		orderList = append(orderList, b.orderList[i].Prefix+"."+getFieldName(b.orderList[i].Field)+" "+b.orderList[i].OrderType)
 	}
 
 	return " ORDER BY " + strings.Join(orderList, ","), paramList
 }
 
 //拼接SQL,分页相关  Postgres数据库分页数量在前偏移在后，其他数据库偏移量在前分页数量在后，另外Mssql数据库的关键词是offset...next
-func (ex *Builder) handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
+func (b *Builder) handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
 	if 0 == pageSize {
 		return "", paramList
 	}
 
 	str := ""
-	if ex.driverName == model.Postgres {
+	if b.driverName == model.Postgres {
 		paramList = append(paramList, pageSize)
 		paramList = append(paramList, offset)
 
@@ -165,7 +172,7 @@ func (ex *Builder) handleLimit(offset int, pageSize int, paramList []any) (strin
 		paramList = append(paramList, pageSize)
 
 		str = " Limit ?,? "
-		if ex.driverName == model.Mssql {
+		if b.driverName == model.Mssql {
 			str = " offset ? rows fetch next ? rows only "
 		}
 	}

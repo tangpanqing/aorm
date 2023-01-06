@@ -50,10 +50,10 @@ func (b *Builder) selectCommon(funcName string, field interface{}, fieldNew inte
 }
 
 // SelectExp 链式操作-表达式
-func (b *Builder) SelectExp(dbSub **Builder, fieldName string) *Builder {
-	//ex.selectExpList = append(ex.selectExpList, &SelectItem{
-	//	Executor:  dbSub,
-	//	FieldName: fieldName,
-	//})
+func (b *Builder) SelectExp(dbSub **Builder, fieldName interface{}) *Builder {
+	b.selectExpList = append(b.selectExpList, &SelectExpItem{
+		Executor:  dbSub,
+		FieldName: fieldName,
+	})
 	return b
 }

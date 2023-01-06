@@ -32,12 +32,13 @@ const Between = "BETWEEN"
 const NotBetween = "NOT BETWEEN"
 
 const Raw = "Raw"
+const RawEq = "RawEq"
 
-// SelectItem 将某子语句重命名为某字段
-//type SelectItem struct {
-//	Executor  **Builder
-//	FieldName string
-//}
+// SelectExpItem 将某子语句重命名为某字段
+type SelectExpItem struct {
+	Executor  **Builder
+	FieldName interface{}
+}
 
 // Builder 查询记录所需要的条件
 type Builder struct {
@@ -50,7 +51,7 @@ type Builder struct {
 	//查询参数
 	tableName       string
 	selectList      []SelectItem
-	selectExpList   []*SelectItem
+	selectExpList   []*SelectExpItem
 	groupList       []GroupItem
 	whereList       []WhereItem
 	joinList        []JoinItem
@@ -58,6 +59,7 @@ type Builder struct {
 	orderList       []OrderItem
 	offset          int
 	pageSize        int
+	distinct        bool
 	isDebug         bool
 	isLockForUpdate bool
 
@@ -69,26 +71,28 @@ type Builder struct {
 	driverName string
 }
 
-//type WhereItem struct {
-//	Field string
-//	Opt   string
-//	Val   any
-//}
+func (b *Builder) Distinct(distinct bool) *Builder {
+	b.distinct = distinct
+	return b
+}
 
-func (ex *Builder) Driver(driverName string) *Builder {
-	ex.driverName = driverName
-	return ex
+func (b *Builder) Driver(driverName string) *Builder {
+	b.driverName = driverName
+	return b
+}
+
+func (b *Builder) getTableNameCommon(typeOf reflect.Type, valueOf reflect.Value) string {
+	if b.table != nil {
+		return getTableNameByTable(b.table)
+	}
+
+	return getTableName(typeOf, valueOf)
 }
 
 // Insert 增加记录
-func (ex *Builder) Insert(dest interface{}) (int64, error) {
+func (b *Builder) Insert(dest interface{}) (int64, error) {
 	typeOf := reflect.TypeOf(dest)
 	valueOf := reflect.ValueOf(dest)
-
-	//如果没有设置表名
-	if ex.tableName == "" {
-		ex.tableName = getTableName(typeOf, valueOf)
-	}
 
 	var keys []string
 	var paramList []any
@@ -104,24 +108,24 @@ func (ex *Builder) Insert(dest interface{}) (int64, error) {
 		}
 	}
 
-	sqlStr := "INSERT INTO " + ex.tableName + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
+	sqlStr := "INSERT INTO " + b.getTableNameCommon(typeOf, valueOf) + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
 
-	if ex.driverName == model.Postgres {
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	if ex.driverName == model.Mssql {
-		return ex.insertForMssqlOrPostgres(sqlStr+"; select ID = convert(bigint, SCOPE_IDENTITY())", paramList...)
-	} else if ex.driverName == model.Postgres {
-		return ex.insertForMssqlOrPostgres(sqlStr+" returning id", paramList...)
+	if b.driverName == model.Mssql {
+		return b.insertForMssqlOrPostgres(sqlStr+"; select ID = convert(bigint, SCOPE_IDENTITY())", paramList...)
+	} else if b.driverName == model.Postgres {
+		return b.insertForMssqlOrPostgres(sqlStr+" returning id", paramList...)
 	} else {
-		return ex.insertForCommon(sqlStr, paramList...)
+		return b.insertForCommon(sqlStr, paramList...)
 	}
 }
 
 //对于Mssql,Postgres类型数据库，为了获取最后插入的id，需要改写入为查询
-func (ex *Builder) insertForMssqlOrPostgres(sql string, paramList ...any) (int64, error) {
-	rows, err := ex.LinkCommon.Query(sql, paramList...)
+func (b *Builder) insertForMssqlOrPostgres(sql string, paramList ...any) (int64, error) {
+	rows, err := b.LinkCommon.Query(sql, paramList...)
 	if err != nil {
 		return 0, err
 	}
@@ -134,8 +138,8 @@ func (ex *Builder) insertForMssqlOrPostgres(sql string, paramList ...any) (int64
 }
 
 //对于非Mssql,Postgres类型数据库，可以直接获取最后插入的id
-func (ex *Builder) insertForCommon(sql string, paramList ...any) (int64, error) {
-	res, err := ex.Exec(sql, paramList...)
+func (b *Builder) insertForCommon(sql string, paramList ...any) (int64, error) {
+	res, err := b.Exec(sql, paramList...)
 	if err != nil {
 		return 0, err
 	}
@@ -163,7 +167,7 @@ func convertToPostgresSql(sqlStr string) string {
 }
 
 // InsertBatch 批量增加记录
-func (ex *Builder) InsertBatch(values interface{}) (int64, error) {
+func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 
 	var keys []string
 	var paramList []any
@@ -174,11 +178,6 @@ func (ex *Builder) InsertBatch(values interface{}) (int64, error) {
 		return 0, errors.New("the data list for insert batch not found")
 	}
 	typeOf := reflect.TypeOf(values).Elem().Elem()
-
-	//如果没有设置表名
-	if ex.tableName == "" {
-		ex.tableName = getTableName(typeOf, valueOf.Index(0))
-	}
 
 	for j := 0; j < valueOf.Len(); j++ {
 		var placeItem []string
@@ -200,13 +199,13 @@ func (ex *Builder) InsertBatch(values interface{}) (int64, error) {
 		place = append(place, "("+strings.Join(placeItem, ",")+")")
 	}
 
-	sqlStr := "INSERT INTO " + ex.tableName + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
+	sqlStr := "INSERT INTO " + b.getTableNameCommon(typeOf, valueOf.Index(0)) + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
 
-	if ex.driverName == model.Postgres {
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	res, err := ex.Exec(sqlStr, paramList...)
+	res, err := b.Exec(sqlStr, paramList...)
 	if err != nil {
 		return 0, err
 	}
@@ -220,10 +219,10 @@ func (ex *Builder) InsertBatch(values interface{}) (int64, error) {
 }
 
 // GetRows 获取行操作
-func (ex *Builder) GetRows() (*sql.Rows, error) {
-	sqlStr, paramList := ex.GetSqlAndParams()
+func (b *Builder) GetRows() (*sql.Rows, error) {
+	sqlStr, paramList := b.GetSqlAndParams()
 
-	smt, errSmt := ex.LinkCommon.Prepare(sqlStr)
+	smt, errSmt := b.LinkCommon.Prepare(sqlStr)
 	if errSmt != nil {
 		return nil, errSmt
 	}
@@ -238,8 +237,8 @@ func (ex *Builder) GetRows() (*sql.Rows, error) {
 }
 
 // GetMany 查询记录(新)
-func (ex *Builder) GetMany(values interface{}) error {
-	rows, errRows := ex.GetRows()
+func (b *Builder) GetMany(values interface{}) error {
+	rows, errRows := b.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -273,10 +272,10 @@ func (ex *Builder) GetMany(values interface{}) error {
 }
 
 // GetOne 查询某一条记录
-func (ex *Builder) GetOne(obj interface{}) error {
-	ex.Limit(0, 1)
+func (b *Builder) GetOne(obj interface{}) error {
+	b.Limit(0, 1)
 
-	rows, errRows := ex.GetRows()
+	rows, errRows := b.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -306,35 +305,35 @@ func (ex *Builder) GetOne(obj interface{}) error {
 }
 
 // RawSql 执行原始的sql语句
-func (ex *Builder) RawSql(sql string, paramList ...interface{}) *Builder {
-	ex.sql = sql
-	ex.paramList = paramList
-	return ex
+func (b *Builder) RawSql(sql string, paramList ...interface{}) *Builder {
+	b.sql = sql
+	b.paramList = paramList
+	return b
 }
 
-func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
-	if ex.sql != "" {
-		return ex.sql, ex.paramList
+func (b *Builder) GetSqlAndParams() (string, []interface{}) {
+	if b.sql != "" {
+		return b.sql, b.paramList
 	}
 
 	var paramList []interface{}
-	tableName := getTableNameByTable(ex.table)
-	fieldStr, paramList := ex.handleField(paramList)
-	whereStr, paramList := ex.handleWhere(paramList)
-	joinStr, paramList := ex.handleJoin(paramList)
-	groupStr, paramList := ex.handleGroup(paramList)
-	havingStr, paramList := ex.handleHaving(paramList)
-	orderStr, paramList := ex.handleOrder(paramList)
-	limitStr, paramList := ex.handleLimit(ex.offset, ex.pageSize, paramList)
-	lockStr := handleLockForUpdate(ex.isLockForUpdate)
+	tableName := getTableNameByTable(b.table)
+	fieldStr, paramList := b.handleField(paramList)
+	whereStr, paramList := b.handleWhere(paramList)
+	joinStr, paramList := b.handleJoin(paramList)
+	groupStr, paramList := b.handleGroup(paramList)
+	havingStr, paramList := b.handleHaving(paramList)
+	orderStr, paramList := b.handleOrder(paramList)
+	limitStr, paramList := b.handleLimit(b.offset, b.pageSize, paramList)
+	lockStr := handleLockForUpdate(b.isLockForUpdate)
 
-	sqlStr := "SELECT " + fieldStr + " FROM " + tableName + " " + ex.tableAlias + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
+	sqlStr := "SELECT " + fieldStr + " FROM " + tableName + " " + b.tableAlias + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
 
-	if ex.driverName == model.Postgres {
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	if ex.isDebug {
+	if b.isDebug {
 		fmt.Println(sqlStr)
 		//fmt.Println(paramList...)
 	}
@@ -343,47 +342,64 @@ func (ex *Builder) GetSqlAndParams() (string, []interface{}) {
 }
 
 // Update 更新记录
-func (ex *Builder) Update(dest interface{}) (int64, error) {
-	var paramList []any
-	setStr, paramList := ex.handleSet(dest, paramList)
-	whereStr, paramList := ex.handleWhere(paramList)
-	sqlStr := "UPDATE " + ex.tableName + setStr + whereStr
+func (b *Builder) Update(dest interface{}) (int64, error) {
+	typeOf := reflect.TypeOf(dest)
+	valueOf := reflect.ValueOf(dest)
 
-	if ex.driverName == model.Postgres {
+	var paramList []any
+	setStr, paramList := b.handleSet(typeOf, valueOf, paramList)
+	whereStr, paramList := b.handleWhere(paramList)
+	sqlStr := "UPDATE " + b.getTableNameCommon(typeOf, valueOf) + setStr + whereStr
+
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	return ex.ExecAffected(sqlStr, paramList...)
+	return b.ExecAffected(sqlStr, paramList...)
 }
 
 // Delete 删除记录
-func (ex *Builder) Delete() (int64, error) {
-	var paramList []any
-	whereStr, paramList := ex.handleWhere(paramList)
-	sqlStr := "DELETE FROM " + getTableNameByTable(ex.table) + whereStr
+func (b *Builder) Delete(destList ...interface{}) (int64, error) {
+	tableName := ""
 
-	if ex.driverName == model.Postgres {
+	if len(destList) > 0 {
+		b.Where(destList[0])
+
+		typeOf := reflect.TypeOf(destList[0])
+		valueOf := reflect.ValueOf(destList[0])
+		tableName = b.getTableNameCommon(typeOf, valueOf)
+	}
+
+	if tableName == "" {
+		tableName = getTableNameByTable(b.table)
+	}
+
+	var paramList []any
+	whereStr, paramList := b.handleWhere(paramList)
+	sqlStr := "DELETE FROM " + tableName + whereStr
+
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	return ex.ExecAffected(sqlStr, paramList...)
+	return b.ExecAffected(sqlStr, paramList...)
 }
 
 // Truncate 清空记录, sqlite3不支持此操作
-func (ex *Builder) Truncate() (int64, error) {
-	sqlStr := "TRUNCATE TABLE " + ex.tableName
-	if ex.driverName == model.Sqlite3 {
-		sqlStr = "DELETE FROM " + ex.tableName
+func (b *Builder) Truncate() (int64, error) {
+	sqlStr := "TRUNCATE TABLE " + getTableNameByTable(b.table)
+	if b.driverName == model.Sqlite3 {
+		sqlStr = "DELETE FROM " + getTableNameByTable(b.table)
 	}
 
-	return ex.ExecAffected(sqlStr)
+	return b.ExecAffected(sqlStr)
 }
 
 // Exists 存在某记录
-func (ex *Builder) Exists() (bool, error) {
+func (b *Builder) Exists() (bool, error) {
 	var obj IntStruct
 
-	err := ex.selectCommon("", "1 as c", nil, "").Limit(0, 1).GetOne(&obj)
+	err := b.selectCommon("", "1 as c", nil, "").Limit(0, 1).GetOne(&obj)
 	if err != nil {
 		return false, err
 	}
@@ -396,18 +412,18 @@ func (ex *Builder) Exists() (bool, error) {
 }
 
 // DoesntExist 不存在某记录
-func (ex *Builder) DoesntExist() (bool, error) {
-	isE, err := ex.Exists()
+func (b *Builder) DoesntExist() (bool, error) {
+	isE, err := b.Exists()
 	return !isE, err
 }
 
 // Value 字段值
-func (ex *Builder) Value(field interface{}, dest interface{}) error {
-	ex.Select(field).Limit(0, 1)
+func (b *Builder) Value(field interface{}, dest interface{}) error {
+	b.Select(field).Limit(0, 1)
 
 	fieldName := getFieldName(field)
 
-	rows, errRows := ex.GetRows()
+	rows, errRows := b.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -442,10 +458,10 @@ func (ex *Builder) Value(field interface{}, dest interface{}) error {
 }
 
 // Pluck 获取某一列的值
-func (ex *Builder) Pluck(fieldName interface{}, values interface{}) error {
-	ex.Select(fieldName)
+func (b *Builder) Pluck(fieldName interface{}, values interface{}) error {
+	b.Select(fieldName)
 
-	rows, errRows := ex.GetRows()
+	rows, errRows := b.GetRows()
 	defer rows.Close()
 	if errRows != nil {
 		return errRows
@@ -484,45 +500,45 @@ func (ex *Builder) Pluck(fieldName interface{}, values interface{}) error {
 }
 
 // Increment 某字段自增
-func (ex *Builder) Increment(field interface{}, step int) (int64, error) {
+func (b *Builder) Increment(field interface{}, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := ex.handleWhere(paramList)
-	sqlStr := "UPDATE " + getTableNameByTable(ex.table) + " SET " + getFieldName(field) + "=" + getFieldName(field) + "+?" + whereStr
+	whereStr, paramList := b.handleWhere(paramList)
+	sqlStr := "UPDATE " + getTableNameByTable(b.table) + " SET " + getFieldName(field) + "=" + getFieldName(field) + "+?" + whereStr
 
-	if ex.driverName == model.Postgres {
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	return ex.ExecAffected(sqlStr, paramList...)
+	return b.ExecAffected(sqlStr, paramList...)
 }
 
 // Decrement 某字段自减
-func (ex *Builder) Decrement(field interface{}, step int) (int64, error) {
+func (b *Builder) Decrement(field interface{}, step int) (int64, error) {
 	var paramList []any
 	paramList = append(paramList, step)
-	whereStr, paramList := ex.handleWhere(paramList)
-	sqlStr := "UPDATE " + getTableNameByTable(ex.table) + " SET " + getFieldName(field) + "=" + getFieldName(field) + "-?" + whereStr
+	whereStr, paramList := b.handleWhere(paramList)
+	sqlStr := "UPDATE " + getTableNameByTable(b.table) + " SET " + getFieldName(field) + "=" + getFieldName(field) + "-?" + whereStr
 
-	if ex.driverName == model.Postgres {
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	return ex.ExecAffected(sqlStr, paramList...)
+	return b.ExecAffected(sqlStr, paramList...)
 }
 
 // Exec 通用执行-新增,更新,删除
-func (ex *Builder) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
-	if ex.driverName == model.Postgres {
+func (b *Builder) Exec(sqlStr string, args ...interface{}) (sql.Result, error) {
+	if b.driverName == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
-	if ex.isDebug {
+	if b.isDebug {
 		fmt.Println(sqlStr)
 		//fmt.Println(args...)
 	}
 
-	smt, err1 := ex.LinkCommon.Prepare(sqlStr)
+	smt, err1 := b.LinkCommon.Prepare(sqlStr)
 	if err1 != nil {
 		return nil, err1
 	}
@@ -533,13 +549,13 @@ func (ex *Builder) Exec(sqlStr string, args ...interface{}) (sql.Result, error) 
 		return nil, err2
 	}
 
-	//ex.clear()
+	//b.clear()
 	return res, nil
 }
 
 // ExecAffected 通用执行-更新,删除
-func (ex *Builder) ExecAffected(sqlStr string, args ...interface{}) (int64, error) {
-	res, err := ex.Exec(sqlStr, args...)
+func (b *Builder) ExecAffected(sqlStr string, args ...interface{}) (int64, error) {
+	res, err := b.Exec(sqlStr, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -553,9 +569,9 @@ func (ex *Builder) ExecAffected(sqlStr string, args ...interface{}) (int64, erro
 }
 
 // Debug 链式操作-是否开启调试,打印sql
-func (ex *Builder) Debug(isDebug bool) *Builder {
-	ex.isDebug = isDebug
-	return ex
+func (b *Builder) Debug(isDebug bool) *Builder {
+	b.isDebug = isDebug
+	return b
 }
 
 // Table 链式操作-从哪个表查询,允许直接写别名,例如 person p
@@ -568,12 +584,12 @@ func (b *Builder) Table(table interface{}, alias ...string) *Builder {
 }
 
 // GroupBy 链式操作,以某字段进行分组
-func (ex *Builder) GroupBy(field interface{}, prefix ...string) *Builder {
-	ex.groupList = append(ex.groupList, GroupItem{
+func (b *Builder) GroupBy(field interface{}, prefix ...string) *Builder {
+	b.groupList = append(b.groupList, GroupItem{
 		Prefix: getPrefixByField(field, prefix...),
 		Field:  field,
 	})
-	return ex
+	return b
 }
 
 // OrderBy 链式操作,以某字段进行排序
@@ -588,27 +604,27 @@ func (b *Builder) OrderBy(field interface{}, orderType string, prefix ...string)
 }
 
 // Limit 链式操作,分页
-func (ex *Builder) Limit(offset int, pageSize int) *Builder {
-	ex.offset = offset
-	ex.pageSize = pageSize
-	return ex
+func (b *Builder) Limit(offset int, pageSize int) *Builder {
+	b.offset = offset
+	b.pageSize = pageSize
+	return b
 }
 
 // Page 链式操作,分页
-func (ex *Builder) Page(pageNum int, pageSize int) *Builder {
-	ex.offset = (pageNum - 1) * pageSize
-	ex.pageSize = pageSize
-	return ex
+func (b *Builder) Page(pageNum int, pageSize int) *Builder {
+	b.offset = (pageNum - 1) * pageSize
+	b.pageSize = pageSize
+	return b
 }
 
 // LockForUpdate 加锁, sqlte3不支持此操作
-func (ex *Builder) LockForUpdate(isLockForUpdate bool) *Builder {
-	ex.isLockForUpdate = isLockForUpdate
-	return ex
+func (b *Builder) LockForUpdate(isLockForUpdate bool) *Builder {
+	b.isLockForUpdate = isLockForUpdate
+	return b
 }
 
 //拼接SQL,查询与筛选通用操作
-func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
+func (b *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
 		allFieldName := ""
@@ -616,9 +632,6 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 			allFieldName += where[i].Prefix + "."
 		}
 		allFieldName += getFieldName(where[i].Field)
-		if where[i].FuncName != "" {
-			allFieldName = where[i].FuncName + "(" + allFieldName + ")"
-		}
 
 		if "**builder.Builder" == reflect.TypeOf(where[i].Val).String() {
 			executor := *(**Builder)(unsafe.Pointer(reflect.ValueOf(where[i].Val).Pointer()))
@@ -627,19 +640,17 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 			if where[i].Opt != Raw {
 				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"("+subSql+")")
 				paramList = append(paramList, subParams...)
-			} else {
-
 			}
 		} else {
 			if where[i].Opt == Eq || where[i].Opt == Ne || where[i].Opt == Gt || where[i].Opt == Ge || where[i].Opt == Lt || where[i].Opt == Le {
-				if ex.driverName == model.Sqlite3 {
+				if b.driverName == model.Sqlite3 {
 					whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"?")
 				} else {
 					switch where[i].Val.(type) {
 					case float32:
-						whereList = append(whereList, ex.getConcatForFloat(allFieldName, "''")+" "+where[i].Opt+" "+"?")
+						whereList = append(whereList, b.getConcatForFloat(allFieldName, "''")+" "+where[i].Opt+" "+"?")
 					case float64:
-						whereList = append(whereList, ex.getConcatForFloat(allFieldName, "''")+" "+where[i].Opt+" "+"?")
+						whereList = append(whereList, b.getConcatForFloat(allFieldName, "''")+" "+where[i].Opt+" "+"?")
 					default:
 						whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"?")
 					}
@@ -668,7 +679,7 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 					}
 				}
 
-				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+ex.getConcatForLike(valueStr...))
+				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+b.getConcatForLike(valueStr...))
 			}
 
 			if where[i].Opt == In || where[i].Opt == NotIn {
@@ -684,6 +695,10 @@ func (ex *Builder) whereAndHaving(where []WhereItem, paramList []any) ([]string,
 
 			if where[i].Opt == Raw {
 				whereList = append(whereList, allFieldName+fmt.Sprintf("%v", where[i].Val))
+			}
+
+			if where[i].Opt == RawEq {
+				whereList = append(whereList, allFieldName+Eq+getPrefixByField(where[i].Val)+"."+getFieldName(where[i].Val))
 			}
 		}
 	}
@@ -758,18 +773,18 @@ func getScans(columnNameList []string, fieldNameMap map[string]int, destValue re
 	return scans
 }
 
-func (ex *Builder) getConcatForFloat(vars ...string) string {
-	if ex.driverName == model.Sqlite3 {
+func (b *Builder) getConcatForFloat(vars ...string) string {
+	if b.driverName == model.Sqlite3 {
 		return strings.Join(vars, "||")
-	} else if ex.driverName == model.Postgres {
+	} else if b.driverName == model.Postgres {
 		return vars[0]
 	} else {
 		return "CONCAT(" + strings.Join(vars, ",") + ")"
 	}
 }
 
-func (ex *Builder) getConcatForLike(vars ...string) string {
-	if ex.driverName == model.Sqlite3 || ex.driverName == model.Postgres {
+func (b *Builder) getConcatForLike(vars ...string) string {
+	if b.driverName == model.Sqlite3 || b.driverName == model.Postgres {
 		return strings.Join(vars, "||")
 	} else {
 		return "CONCAT(" + strings.Join(vars, ",") + ")"

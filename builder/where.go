@@ -34,66 +34,71 @@ func (b *Builder) WhereArr(whereList []WhereItem) *Builder {
 }
 
 func (b *Builder) WhereEq(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Eq, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Eq, val})
 	return b
 }
 
 func (b *Builder) WhereNe(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Ne, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Ne, val})
 	return b
 }
 
 func (b *Builder) WhereGt(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Gt, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Gt, val})
 	return b
 }
 
 func (b *Builder) WhereGe(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Ge, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Ge, val})
 	return b
 }
 
 func (b *Builder) WhereLt(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Lt, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Lt, val})
 	return b
 }
 
 func (b *Builder) WhereLe(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Le, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Le, val})
 	return b
 }
 
 func (b *Builder) WhereIn(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, In, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, In, val})
 	return b
 }
 
 func (b *Builder) WhereNotIn(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, NotIn, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, NotIn, val})
 	return b
 }
 
 func (b *Builder) WhereBetween(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Between, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Between, val})
 	return b
 }
 
 func (b *Builder) WhereNotBetween(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, NotBetween, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, NotBetween, val})
 	return b
 }
 
 func (b *Builder) WhereLike(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Like, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Like, val})
 	return b
 }
 
 func (b *Builder) WhereNotLike(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, NotLike, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, NotLike, val})
 	return b
 }
 
 func (b *Builder) WhereRaw(field interface{}, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{"", getPrefixByField(field, prefix...), field, Raw, val})
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, Raw, val})
+	return b
+}
+
+func (b *Builder) WhereRawEq(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, RawEq, val})
 	return b
 }

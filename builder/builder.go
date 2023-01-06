@@ -7,7 +7,6 @@ import (
 	"unicode"
 )
 
-var RawEq = "rawEq"
 var TableMap = make(map[uintptr]string)
 var FieldMap = make(map[uintptr]FieldInfo)
 
@@ -22,11 +21,10 @@ type GroupItem struct {
 }
 
 type WhereItem struct {
-	FuncName string
-	Prefix   string
-	Field    interface{}
-	Opt      string
-	Val      interface{}
+	Prefix string
+	Field  interface{}
+	Opt    string
+	Val    interface{}
 }
 
 type SelectItem struct {
@@ -185,9 +183,15 @@ func getTableNameByTable(table interface{}) string {
 	if table == nil {
 		panic("当前table不能是nil")
 	}
-	tableName := TableMap[reflect.ValueOf(table).Pointer()]
-	strArr := strings.Split(tableName, ".")
-	return UnderLine(strArr[len(strArr)-1])
+
+	valueOf := reflect.ValueOf(table)
+	if reflect.Ptr == valueOf.Kind() {
+		tableName := TableMap[valueOf.Pointer()]
+		strArr := strings.Split(tableName, ".")
+		return UnderLine(strArr[len(strArr)-1])
+	} else {
+		return fmt.Sprintf("%v", table)
+	}
 }
 
 func getTableNameByField(field interface{}) string {
@@ -244,7 +248,7 @@ func getWhereStr(whereList []WhereItem, paramList []interface{}) (string, []inte
 			paramList = append(paramList, whereList[i].Val)
 		}
 
-		if whereList[i].Opt == "rawEq" {
+		if whereList[i].Opt == RawEq {
 			value := getFieldName(whereList[i].Val)
 			sqlList = append(sqlList, prefix+"."+field+"="+value)
 		}

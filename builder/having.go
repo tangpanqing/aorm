@@ -6,13 +6,13 @@ import (
 )
 
 // Having 链式操作,以对象作为筛选条件
-func (ex *Builder) Having(dest interface{}) *Builder {
+func (b *Builder) Having(dest interface{}) *Builder {
 	typeOf := reflect.TypeOf(dest)
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if ex.tableName == "" {
-		ex.tableName = getTableName(typeOf, valueOf)
+	if b.tableName == "" {
+		b.tableName = getTableName(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
@@ -20,158 +20,80 @@ func (ex *Builder) Having(dest interface{}) *Builder {
 		if isNotNull {
 			key := helper.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
-			ex.havingList = append(ex.havingList, WhereItem{Field: key, Opt: Eq, Val: val})
+			b.havingList = append(b.havingList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}
 	}
 
-	return ex
+	return b
 }
 
 // HavingArr 链式操作,以数组作为筛选条件
-func (ex *Builder) HavingArr(havingList []WhereItem) *Builder {
-	ex.havingList = append(ex.havingList, havingList...)
-	return ex
+func (b *Builder) HavingArr(havingList []WhereItem) *Builder {
+	b.havingList = append(b.havingList, havingList...)
+	return b
 }
 
-func (ex *Builder) HavingEq(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Eq,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingEq(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Eq, val})
+	return b
 }
 
-func (ex *Builder) HavingNe(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Ne,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingNe(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Ne, val})
+	return b
 }
 
-func (ex *Builder) HavingGt(field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: "",
-		Prefix:   "",
-		Field:    field,
-		Opt:      Gt,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingGt(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Gt, val})
+	return b
 }
 
-func (ex *Builder) HavingGe(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Ge,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingGe(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Ge, val})
+	return b
 }
 
-func (ex *Builder) HavingLt(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Lt,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingLt(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Lt, val})
+	return b
 }
 
-func (ex *Builder) HavingLe(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Le,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingLe(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Le, val})
+	return b
 }
 
-func (ex *Builder) HavingIn(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      In,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingIn(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, In, val})
+	return b
 }
 
-func (ex *Builder) HavingNotIn(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      NotIn,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingNotIn(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, NotIn, val})
+	return b
 }
 
-func (ex *Builder) HavingBetween(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Between,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingBetween(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Between, val})
+	return b
 }
 
-func (ex *Builder) HavingNotBetween(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      NotBetween,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingNotBetween(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, NotBetween, val})
+	return b
 }
 
-func (ex *Builder) HavingLike(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Like,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingLike(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Like, val})
+	return b
 }
 
-func (ex *Builder) HavingNotLike(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      NotLike,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingNotLike(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, NotLike, val})
+	return b
 }
 
-func (ex *Builder) HavingRaw(funcName string, field interface{}, val interface{}, prefix ...string) *Builder {
-	ex.havingList = append(ex.havingList, WhereItem{
-		FuncName: funcName,
-		Prefix:   getPrefixByField(field, prefix...),
-		Field:    field,
-		Opt:      Raw,
-		Val:      val,
-	})
-	return ex
+func (b *Builder) HavingRaw(field interface{}, val interface{}, prefix ...string) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", field, Raw, val})
+	return b
 }
