@@ -7,6 +7,27 @@ import (
 	"strings"
 )
 
+func handleFieldWith(selectItem SelectItem) string {
+	str := ""
+	if selectItem.FuncName != "" {
+		str += selectItem.FuncName
+		str += "("
+	}
+
+	if selectItem.Prefix != "" {
+		str += selectItem.Prefix
+		str += "."
+	}
+
+	str += getFieldName(selectItem.Field)
+
+	if selectItem.FuncName != "" {
+		str += ")"
+	}
+
+	return str
+}
+
 //拼接SQL,字段相关
 func (b *Builder) handleField(paramList []any) (string, []any) {
 	fieldStr := ""
@@ -25,22 +46,7 @@ func (b *Builder) handleField(paramList []any) (string, []any) {
 	for i := 0; i < len(b.selectList); i++ {
 		selectItem := b.selectList[i]
 
-		str := ""
-		if selectItem.FuncName != "" {
-			str += selectItem.FuncName
-			str += "("
-		}
-
-		if selectItem.Prefix != "" {
-			str += selectItem.Prefix
-			str += "."
-		}
-
-		str += getFieldName(selectItem.Field)
-
-		if selectItem.FuncName != "" {
-			str += ")"
-		}
+		str := handleFieldWith(selectItem)
 
 		if selectItem.FieldNew != nil {
 			str += " AS "
@@ -68,7 +74,7 @@ func (b *Builder) handleWhere(paramList []any) (string, []any) {
 		return "", paramList
 	}
 
-	strList, paramList := b.whereAndHaving(b.whereList, paramList)
+	strList, paramList := b.whereAndHaving(b.whereList, paramList, false)
 
 	return " WHERE " + strings.Join(strList, " AND "), paramList
 }
@@ -136,7 +142,7 @@ func (b *Builder) handleHaving(paramList []any) (string, []any) {
 		return "", paramList
 	}
 
-	strList, paramList := b.whereAndHaving(b.havingList, paramList)
+	strList, paramList := b.whereAndHaving(b.havingList, paramList, true)
 
 	return " Having " + strings.Join(strList, " AND "), paramList
 }
@@ -156,20 +162,20 @@ func (b *Builder) handleOrder(paramList []any) (string, []any) {
 }
 
 //拼接SQL,分页相关  Postgres数据库分页数量在前偏移在后，其他数据库偏移量在前分页数量在后，另外Mssql数据库的关键词是offset...next
-func (b *Builder) handleLimit(offset int, pageSize int, paramList []any) (string, []any) {
-	if 0 == pageSize {
+func (b *Builder) handleLimit(paramList []any) (string, []any) {
+	if 0 == b.pageSize {
 		return "", paramList
 	}
 
 	str := ""
 	if b.driverName == model.Postgres {
-		paramList = append(paramList, pageSize)
-		paramList = append(paramList, offset)
+		paramList = append(paramList, b.pageSize)
+		paramList = append(paramList, b.offset)
 
 		str = " Limit ? offset ? "
 	} else {
-		paramList = append(paramList, offset)
-		paramList = append(paramList, pageSize)
+		paramList = append(paramList, b.offset)
+		paramList = append(paramList, b.pageSize)
 
 		str = " Limit ?,? "
 		if b.driverName == model.Mssql {
@@ -181,8 +187,8 @@ func (b *Builder) handleLimit(offset int, pageSize int, paramList []any) (string
 }
 
 //拼接SQL,锁
-func handleLockForUpdate(isLock bool) string {
-	if isLock {
+func (b *Builder) handleLockForUpdate() string {
+	if b.isLockForUpdate {
 		return " FOR UPDATE"
 	}
 
