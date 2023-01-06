@@ -33,67 +33,67 @@ func (b *Builder) HavingArr(havingList []WhereItem) *Builder {
 	return b
 }
 
-func (b *Builder) HavingEq(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingEq(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Eq, val})
 	return b
 }
 
-func (b *Builder) HavingNe(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingNe(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Ne, val})
 	return b
 }
 
-func (b *Builder) HavingGt(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingGt(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Gt, val})
 	return b
 }
 
-func (b *Builder) HavingGe(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingGe(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Ge, val})
 	return b
 }
 
-func (b *Builder) HavingLt(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingLt(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Lt, val})
 	return b
 }
 
-func (b *Builder) HavingLe(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingLe(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Le, val})
 	return b
 }
 
-func (b *Builder) HavingIn(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingIn(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, In, val})
 	return b
 }
 
-func (b *Builder) HavingNotIn(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingNotIn(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, NotIn, val})
 	return b
 }
 
-func (b *Builder) HavingBetween(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingBetween(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Between, val})
 	return b
 }
 
-func (b *Builder) HavingNotBetween(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingNotBetween(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, NotBetween, val})
 	return b
 }
 
-func (b *Builder) HavingLike(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingLike(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Like, val})
 	return b
 }
 
-func (b *Builder) HavingNotLike(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingNotLike(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, NotLike, val})
 	return b
 }
 
-func (b *Builder) HavingRaw(field interface{}, val interface{}, prefix ...string) *Builder {
+func (b *Builder) HavingRaw(field interface{}, val interface{}) *Builder {
 	b.havingList = append(b.havingList, WhereItem{"", field, Raw, val})
 	return b
 }

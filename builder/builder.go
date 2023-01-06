@@ -2,9 +2,9 @@ package builder
 
 import (
 	"fmt"
+	"github.com/tangpanqing/aorm/helper"
 	"reflect"
 	"strings"
-	"unicode"
 )
 
 var TableMap = make(map[uintptr]string)
@@ -32,6 +32,11 @@ type SelectItem struct {
 	Prefix   string
 	Field    interface{}
 	FieldNew interface{}
+}
+
+type SelectExpItem struct {
+	Builder   **Builder
+	FieldName interface{}
 }
 
 type JoinItem struct {
@@ -87,72 +92,6 @@ func GenJoinCondition(fieldOfCurrentTable interface{}, opt string, fieldOfOtherT
 	}
 }
 
-//func (b *Builder) GetOne(dest interface{}) {
-//	var paramList []interface{}
-//
-//	table := getTableName(b.table)
-//	selectStr, paramList := b.handleSelect(paramList)
-//	joinStr, paramList := b.handleJoin(paramList)
-//	whereStr, paramList := b.handleWhere(paramList)
-//
-//	var sql = "SELECT " + selectStr + " FROM " + table + " " + b.tableAlias + joinStr + whereStr
-//
-//	fmt.Println(sql)
-//	//fmt.Println(paramList)
-//}
-
-func (b *Builder) handleSelect(paramList []interface{}) (string, []interface{}) {
-	if len(b.selectList) == 0 {
-		return "*", paramList
-	}
-
-	var sqlList []string
-	for i := 0; i < len(b.selectList); i++ {
-		nameOfField := ""
-		typeOfField := reflect.TypeOf(b.selectList[i].Field)
-		valueOfField := reflect.ValueOf(b.selectList[i].Field)
-
-		if reflect.String == typeOfField.Kind() {
-			nameOfField = fmt.Sprintf("%v", b.selectList[i].Field)
-		} else if reflect.Ptr == typeOfField.Kind() {
-			nameOfField = UnderLine(FieldMap[valueOfField.Pointer()].Name)
-		} else {
-			panic("其他类型")
-		}
-
-		nameOfFieldNew := ""
-		if b.selectList[i].FieldNew != nil {
-			typeOfFieldNew := reflect.TypeOf(b.selectList[i].FieldNew)
-			valueOfFieldNew := reflect.ValueOf(b.selectList[i].FieldNew)
-			if reflect.String == typeOfFieldNew.Kind() {
-				nameOfFieldNew = fmt.Sprintf("%v", b.selectList[i].FieldNew)
-			} else if reflect.Ptr == typeOfFieldNew.Kind() {
-				nameOfFieldNew = UnderLine(FieldMap[valueOfFieldNew.Pointer()].Name)
-			} else {
-				panic("其他类型")
-			}
-
-			if nameOfFieldNew != "" {
-				nameOfFieldNew = " AS " + nameOfFieldNew
-			}
-		}
-
-		sqlList = append(sqlList, b.selectList[i].Prefix+"."+nameOfField+nameOfFieldNew)
-	}
-
-	return strings.Join(sqlList, ","), paramList
-}
-
-//func (b *Builder) handleWhere(paramList []interface{}) (string, []interface{}) {
-//	if len(b.whereList) == 0 {
-//		return "", paramList
-//	}
-//
-//	str, paramList := getWhereStr(b.whereList, paramList)
-//
-//	return " WHERE " + str, paramList
-//}
-
 func getPrefixByField(field interface{}, alias ...string) string {
 	str := ""
 	if len(alias) > 0 {
@@ -164,21 +103,6 @@ func getPrefixByField(field interface{}, alias ...string) string {
 	return str
 }
 
-func UnderLine(s string) string {
-	var output []rune
-	for i, r := range s {
-		if i == 0 {
-			output = append(output, unicode.ToLower(r))
-			continue
-		}
-		if unicode.IsUpper(r) {
-			output = append(output, '_')
-		}
-		output = append(output, unicode.ToLower(r))
-	}
-	return string(output)
-}
-
 func getTableNameByTable(table interface{}) string {
 	if table == nil {
 		panic("当前table不能是nil")
@@ -188,7 +112,7 @@ func getTableNameByTable(table interface{}) string {
 	if reflect.Ptr == valueOf.Kind() {
 		tableName := TableMap[valueOf.Pointer()]
 		strArr := strings.Split(tableName, ".")
-		return UnderLine(strArr[len(strArr)-1])
+		return helper.UnderLine(strArr[len(strArr)-1])
 	} else {
 		return fmt.Sprintf("%v", table)
 	}
@@ -201,7 +125,7 @@ func getTableNameByField(field interface{}) string {
 
 		tableName := TableMap[tablePointer]
 		strArr := strings.Split(tableName, ".")
-		return UnderLine(strArr[len(strArr)-1])
+		return helper.UnderLine(strArr[len(strArr)-1])
 	} else {
 		return fmt.Sprintf("%v", field)
 	}
@@ -232,27 +156,8 @@ func getWhereStrForJoin(aliasOfCurrentTable string, joinCondition []JoinConditio
 func getFieldName(field interface{}) string {
 	valueOf := reflect.ValueOf(field)
 	if reflect.Ptr == valueOf.Kind() {
-		return UnderLine(FieldMap[reflect.ValueOf(field).Pointer()].Name)
+		return helper.UnderLine(FieldMap[reflect.ValueOf(field).Pointer()].Name)
 	} else {
 		return fmt.Sprintf("%v", field)
 	}
-}
-
-func getWhereStr(whereList []WhereItem, paramList []interface{}) (string, []interface{}) {
-	var sqlList []string
-	for i := 0; i < len(whereList); i++ {
-		prefix := whereList[i].Prefix
-		field := getFieldName(whereList[i].Field)
-		if whereList[i].Opt == "=" {
-			sqlList = append(sqlList, prefix+"."+field+"="+"?")
-			paramList = append(paramList, whereList[i].Val)
-		}
-
-		if whereList[i].Opt == RawEq {
-			value := getFieldName(whereList[i].Val)
-			sqlList = append(sqlList, prefix+"."+field+"="+value)
-		}
-	}
-
-	return strings.Join(sqlList, " AND "), paramList
 }

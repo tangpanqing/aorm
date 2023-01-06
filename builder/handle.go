@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func handleFieldWith(selectItem SelectItem) string {
+func handleSelectWith(selectItem SelectItem) string {
 	str := ""
 	if selectItem.FuncName != "" {
 		str += selectItem.FuncName
@@ -29,7 +29,7 @@ func handleFieldWith(selectItem SelectItem) string {
 }
 
 //拼接SQL,字段相关
-func (b *Builder) handleField(paramList []any) (string, []any) {
+func (b *Builder) handleSelect(paramList []any) (string, []any) {
 	fieldStr := ""
 	if b.distinct {
 		fieldStr += "DISTINCT "
@@ -46,7 +46,7 @@ func (b *Builder) handleField(paramList []any) (string, []any) {
 	for i := 0; i < len(b.selectList); i++ {
 		selectItem := b.selectList[i]
 
-		str := handleFieldWith(selectItem)
+		str := handleSelectWith(selectItem)
 
 		if selectItem.FieldNew != nil {
 			str += " AS "
@@ -58,7 +58,7 @@ func (b *Builder) handleField(paramList []any) (string, []any) {
 
 	//处理子语句
 	for i := 0; i < len(b.selectExpList); i++ {
-		executor := *(b.selectExpList[i].Executor)
+		executor := *(b.selectExpList[i].Builder)
 		subSql, subParamList := executor.GetSqlAndParams()
 		strList = append(strList, "("+subSql+") AS "+getFieldName(b.selectExpList[i].FieldName))
 		paramList = append(paramList, subParamList...)

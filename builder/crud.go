@@ -12,8 +12,6 @@ import (
 	"unsafe"
 )
 
-const Count = "COUNT"
-
 const Desc = "DESC"
 const Asc = "ASC"
 
@@ -33,12 +31,6 @@ const NotBetween = "NOT BETWEEN"
 
 const Raw = "Raw"
 const RawEq = "RawEq"
-
-// SelectExpItem 将某子语句重命名为某字段
-type SelectExpItem struct {
-	Executor  **Builder
-	FieldName interface{}
-}
 
 // Builder 查询记录所需要的条件
 type Builder struct {
@@ -333,7 +325,7 @@ func (b *Builder) GetSqlAndParams() (string, []interface{}) {
 
 	var paramList []interface{}
 	tableName := getTableNameByTable(b.table)
-	fieldStr, paramList := b.handleField(paramList)
+	fieldStr, paramList := b.handleSelect(paramList)
 	whereStr, paramList := b.handleWhere(paramList)
 	joinStr, paramList := b.handleJoin(paramList)
 	groupStr, paramList := b.handleGroup(paramList)
@@ -343,7 +335,6 @@ func (b *Builder) GetSqlAndParams() (string, []interface{}) {
 	lockStr := b.handleLockForUpdate()
 
 	sql := "SELECT " + fieldStr + " FROM " + tableName + " " + b.tableAlias + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
-
 	if b.driverName == model.Postgres {
 		sql = convertToPostgresSql(sql)
 	}
@@ -643,7 +634,7 @@ func (b *Builder) whereAndHaving(where []WhereItem, paramList []any, isFromHavin
 			fieldNameCurrent := getFieldName(where[i].Field)
 			for m := 0; m < len(b.selectList); m++ {
 				if fieldNameCurrent == getFieldName(b.selectList[m].FieldNew) {
-					allFieldName += handleFieldWith(b.selectList[m])
+					allFieldName += handleSelectWith(b.selectList[m])
 				}
 			}
 		} else {
@@ -722,6 +713,24 @@ func (b *Builder) whereAndHaving(where []WhereItem, paramList []any, isFromHavin
 	return whereList, paramList
 }
 
+func (b *Builder) getConcatForFloat(vars ...string) string {
+	if b.driverName == model.Sqlite3 {
+		return strings.Join(vars, "||")
+	} else if b.driverName == model.Postgres {
+		return vars[0]
+	} else {
+		return "CONCAT(" + strings.Join(vars, ",") + ")"
+	}
+}
+
+func (b *Builder) getConcatForLike(vars ...string) string {
+	if b.driverName == model.Sqlite3 || b.driverName == model.Postgres {
+		return strings.Join(vars, "||")
+	} else {
+		return "CONCAT(" + strings.Join(vars, ",") + ")"
+	}
+}
+
 //将一个interface抽取成数组
 func toAnyArr(val any) []any {
 	var values []any
@@ -788,22 +797,4 @@ func getScans(columnNameList []string, fieldNameMap map[string]int, destValue re
 	}
 
 	return scans
-}
-
-func (b *Builder) getConcatForFloat(vars ...string) string {
-	if b.driverName == model.Sqlite3 {
-		return strings.Join(vars, "||")
-	} else if b.driverName == model.Postgres {
-		return vars[0]
-	} else {
-		return "CONCAT(" + strings.Join(vars, ",") + ")"
-	}
-}
-
-func (b *Builder) getConcatForLike(vars ...string) string {
-	if b.driverName == model.Sqlite3 || b.driverName == model.Postgres {
-		return strings.Join(vars, "||")
-	} else {
-		return "CONCAT(" + strings.Join(vars, ",") + ")"
-	}
 }
