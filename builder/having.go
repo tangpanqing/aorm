@@ -27,6 +27,10 @@ func (b *Builder) Having(dest interface{}) *Builder {
 	return b
 }
 
+func GenHavingItem(field interface{}, opt string, val interface{}) WhereItem {
+	return WhereItem{"", field, opt, val}
+}
+
 // HavingArr 链式操作,以数组作为筛选条件
 func (b *Builder) HavingArr(havingList []WhereItem) *Builder {
 	b.havingList = append(b.havingList, havingList...)

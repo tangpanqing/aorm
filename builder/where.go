@@ -27,6 +27,10 @@ func (b *Builder) Where(dest interface{}) *Builder {
 	return b
 }
 
+func GenWhereItem(field interface{}, opt string, val interface{}, prefix ...string) WhereItem {
+	return WhereItem{getPrefixByField(field, prefix...), field, opt, val}
+}
+
 // WhereArr 链式操作,以数组作为查询条件
 func (b *Builder) WhereArr(whereList []WhereItem) *Builder {
 	b.whereList = append(b.whereList, whereList...)

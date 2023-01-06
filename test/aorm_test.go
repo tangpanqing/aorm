@@ -401,11 +401,11 @@ func testWhereWithSub(driver string, db *sql.DB) {
 func testWhere(driver string, db *sql.DB) {
 	var listByWhere []Person
 	err := aorm.Use(db).Debug(false).Driver(driver).Table(&person).WhereArr([]builder.WhereItem{
-		{Field: &person.Type, Opt: builder.Eq, Val: 0},
-		{Field: &person.Age, Opt: builder.In, Val: []int{18, 20}},
-		{Field: &person.Money, Opt: builder.Between, Val: []float64{100.1, 200.9}},
-		{Field: &person.Money, Opt: builder.Eq, Val: 100.15},
-		{Field: &person.Name, Opt: builder.Like, Val: []string{"%", "li", "%"}},
+		builder.GenWhereItem(&person.Type, builder.Eq, 0),
+		builder.GenWhereItem(&person.Age, builder.In, []int{18, 20}),
+		builder.GenWhereItem(&person.Money, builder.Between, []float64{100.1, 200.9}),
+		builder.GenWhereItem(&person.Money, builder.Eq, 100.15),
+		builder.GenWhereItem(&person.Name, builder.Like, []string{"%", "li", "%"}),
 	}).GetMany(&listByWhere)
 	if err != nil {
 		panic(driver + "testWhere" + "found err")
@@ -455,8 +455,6 @@ func testJoinWithAlias(driver string, db *sql.DB) {
 
 func testGroupBy(driver string, db *sql.DB) {
 	var personAgeItem PersonAge
-	var where []builder.WhereItem
-	where = append(where, builder.WhereItem{Field: "type", Opt: builder.Eq, Val: 0})
 	err := aorm.Use(db).Debug(false).
 		Table(&person).
 		Select(&person.Age).
