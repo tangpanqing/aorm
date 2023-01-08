@@ -85,8 +85,8 @@ func (b *Builder) WhereNotLike(field interface{}, val interface{}, prefix ...str
 	return b.whereItemAppend(field, NotLike, val, prefix...)
 }
 
-func (b *Builder) WhereRaw(field interface{}, val interface{}, prefix ...string) *Builder {
-	return b.whereItemAppend(field, Raw, val, prefix...)
+func (b *Builder) WhereRaw(val interface{}) *Builder {
+	return b.whereItemAppend("", Raw, val)
 }
 
 func (b *Builder) WhereRawEq(field interface{}, val interface{}, prefix ...string) *Builder {

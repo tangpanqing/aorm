@@ -97,7 +97,7 @@ func (b *Builder) HavingNotLike(field interface{}, val interface{}) *Builder {
 	return b
 }
 
-func (b *Builder) HavingRaw(field interface{}, val interface{}) *Builder {
-	b.havingList = append(b.havingList, WhereItem{"", field, Raw, val})
+func (b *Builder) HavingRaw(val interface{}) *Builder {
+	b.havingList = append(b.havingList, WhereItem{"", "", Raw, val})
 	return b
 }
