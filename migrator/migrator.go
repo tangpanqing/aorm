@@ -54,12 +54,15 @@ func (mi *Migrator) ShowCreateTable(tableName string) string {
 }
 
 // AutoMigrate 迁移数据库结构,需要输入数据库名,表名自动获取
-func (mi *Migrator) AutoMigrate(dest interface{}) {
-	typeOf := reflect.TypeOf(dest)
-	arr := strings.Split(typeOf.String(), ".")
-	tableName := helper.UnderLine(arr[len(arr)-1])
+func (mi *Migrator) AutoMigrate(destList ...interface{}) {
+	for i := 0; i < len(destList); i++ {
+		dest := destList[i]
 
-	mi.migrateCommon(tableName, typeOf)
+		typeOf := reflect.TypeOf(dest)
+		arr := strings.Split(typeOf.String(), ".")
+		tableName := helper.UnderLine(arr[len(arr)-1])
+		mi.migrateCommon(tableName, typeOf)
+	}
 }
 
 // Migrate 自动迁移数据库结构,需要输入数据库名,表名

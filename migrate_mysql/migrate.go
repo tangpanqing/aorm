@@ -67,9 +67,9 @@ func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) 
 	if len(tablesFromDb) != 0 {
 		tableFromDb := tablesFromDb[0]
 		columnsFromDb := mm.getColumnsFromDb(dbName, tableName)
-		indexsFromDb := mm.getIndexesFromDb(tableName)
+		indexesFromDb := mm.getIndexesFromDb(tableName)
 
-		mm.modifyTable(tableFromCode, columnsFromCode, indexesFromCode, tableFromDb, columnsFromDb, indexsFromDb)
+		mm.modifyTable(tableFromCode, columnsFromCode, indexesFromCode, tableFromDb, columnsFromDb, indexesFromDb)
 	} else {
 		mm.createTable(tableFromCode, columnsFromCode, indexesFromCode)
 	}
@@ -78,12 +78,11 @@ func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) 
 }
 
 func (mm *MigrateExecutor) getTableFromCode(tableName string) Table {
-	var tableFromCode Table
-	tableFromCode.TableName = null.StringFrom(tableName)
-	tableFromCode.Engine = null.StringFrom(mm.getOpinionVal("ENGINE", "MyISAM"))
-	tableFromCode.TableComment = null.StringFrom(mm.getOpinionVal("COMMENT", ""))
-
-	return tableFromCode
+	return Table{
+		TableName:    null.StringFrom(tableName),
+		Engine:       null.StringFrom(mm.getOpinionVal("ENGINE", "MyISAM")),
+		TableComment: null.StringFrom(mm.getOpinionVal("COMMENT", "")),
+	}
 }
 
 func (mm *MigrateExecutor) getColumnsFromCode(typeOf reflect.Type) []Column {

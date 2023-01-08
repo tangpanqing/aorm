@@ -12,7 +12,7 @@ func (b *Builder) Where(dest interface{}) *Builder {
 
 	//如果没有设置表名
 	if b.tableName == "" {
-		b.tableName = getTableName(typeOf, valueOf)
+		b.tableName = getTableNameByReflect(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
@@ -25,10 +25,6 @@ func (b *Builder) Where(dest interface{}) *Builder {
 	}
 
 	return b
-}
-
-func GenWhereItem(field interface{}, opt string, val interface{}, prefix ...string) WhereItem {
-	return WhereItem{getPrefixByField(field, prefix...), field, opt, val}
 }
 
 // WhereArr 链式操作,以数组作为查询条件

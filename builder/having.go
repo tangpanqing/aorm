@@ -12,7 +12,7 @@ func (b *Builder) Having(dest interface{}) *Builder {
 
 	//如果没有设置表名
 	if b.tableName == "" {
-		b.tableName = getTableName(typeOf, valueOf)
+		b.tableName = getTableNameByReflect(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
@@ -25,10 +25,6 @@ func (b *Builder) Having(dest interface{}) *Builder {
 	}
 
 	return b
-}
-
-func GenHavingItem(field interface{}, opt string, val interface{}) WhereItem {
-	return WhereItem{"", field, opt, val}
 }
 
 // HavingArr 链式操作,以数组作为筛选条件

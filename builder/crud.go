@@ -78,7 +78,7 @@ func (b *Builder) getTableNameCommon(typeOf reflect.Type, valueOf reflect.Value)
 		return getTableNameByTable(b.table)
 	}
 
-	return getTableName(typeOf, valueOf)
+	return getTableNameByReflect(typeOf, valueOf)
 }
 
 // Insert 增加记录
@@ -262,7 +262,7 @@ func (b *Builder) GetMany(values interface{}) error {
 	}
 
 	//从结构体反射出来的属性名
-	fieldNameMap := getFieldNameMap(destValue, destType)
+	fieldNameMap := getFieldMapByReflect(destValue, destType)
 
 	for rows.Next() {
 		scans := getScans(columnNameList, fieldNameMap, destValue)
@@ -298,7 +298,7 @@ func (b *Builder) GetOne(obj interface{}) error {
 	}
 
 	//从结构体反射出来的属性名
-	fieldNameMap := getFieldNameMap(destValue, destType)
+	fieldNameMap := getFieldMapByReflect(destValue, destType)
 
 	for rows.Next() {
 		scans := getScans(columnNameList, fieldNameMap, destValue)
@@ -729,72 +729,4 @@ func (b *Builder) getConcatForLike(vars ...string) string {
 	} else {
 		return "CONCAT(" + strings.Join(vars, ",") + ")"
 	}
-}
-
-//将一个interface抽取成数组
-func toAnyArr(val any) []any {
-	var values []any
-	switch val.(type) {
-	case []int:
-		for _, value := range val.([]int) {
-			values = append(values, value)
-		}
-	case []int64:
-		for _, value := range val.([]int64) {
-			values = append(values, value)
-		}
-	case []float32:
-		for _, value := range val.([]float32) {
-			values = append(values, value)
-		}
-	case []float64:
-		for _, value := range val.([]float64) {
-			values = append(values, value)
-		}
-	case []string:
-		for _, value := range val.([]string) {
-			values = append(values, value)
-		}
-	}
-
-	return values
-}
-
-//反射表名,优先从方法获取,没有方法则从名字获取
-func getTableName(typeOf reflect.Type, valueOf reflect.Value) string {
-	method, isSet := typeOf.MethodByName("TableName")
-	if isSet {
-		var paramList []reflect.Value
-		paramList = append(paramList, valueOf)
-		res := method.Func.Call(paramList)
-		return res[0].String()
-	} else {
-		arr := strings.Split(typeOf.String(), ".")
-		return helper.UnderLine(arr[len(arr)-1])
-	}
-}
-
-func getFieldNameMap(destValue reflect.Value, destType reflect.Type) map[string]int {
-	fieldNameMap := make(map[string]int)
-	for i := 0; i < destValue.NumField(); i++ {
-		fieldNameMap[destType.Field(i).Name] = i
-	}
-
-	return fieldNameMap
-}
-
-func getScans(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
-	var scans []interface{}
-	for _, columnName := range columnNameList {
-		fieldName := helper.CamelString(strings.ToLower(columnName))
-		index, ok := fieldNameMap[fieldName]
-		if ok {
-			scans = append(scans, destValue.Field(index).Addr().Interface())
-		} else {
-			var emptyVal interface{}
-			scans = append(scans, &emptyVal)
-		}
-	}
-
-	return scans
 }
