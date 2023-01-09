@@ -14,6 +14,11 @@ type OpinionItem struct {
 	Val string
 }
 
+type FieldInfo struct {
+	TablePointer uintptr
+	Name         string
+}
+
 const Mysql = "mysql"
 const Mssql = "mssql"
 const Postgres = "postgres"

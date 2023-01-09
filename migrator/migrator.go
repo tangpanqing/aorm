@@ -57,10 +57,8 @@ func (mi *Migrator) ShowCreateTable(tableName string) string {
 func (mi *Migrator) AutoMigrate(destList ...interface{}) {
 	for i := 0; i < len(destList); i++ {
 		dest := destList[i]
-
 		typeOf := reflect.TypeOf(dest)
-		arr := strings.Split(typeOf.String(), ".")
-		tableName := helper.UnderLine(arr[len(arr)-1])
+		tableName := getTableNameByReflect(typeOf)
 		mi.migrateCommon(tableName, typeOf)
 	}
 }
@@ -119,4 +117,16 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 
 func (mi *Migrator) GetOpinionList() []model.OpinionItem {
 	return mi.opinionList
+}
+
+//反射表名,优先从方法获取,没有方法则从名字获取
+func getTableNameByReflect(typeOf reflect.Type) string {
+	method, isSet := typeOf.MethodByName("TableName")
+	if isSet {
+		res := method.Func.Call(nil)
+		return res[0].String()
+	} else {
+		arr := strings.Split(typeOf.String(), ".")
+		return helper.UnderLine(arr[len(arr)-1])
+	}
 }

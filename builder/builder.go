@@ -2,15 +2,11 @@ package builder
 
 import (
 	"fmt"
+	"github.com/tangpanqing/aorm/cache"
 	"github.com/tangpanqing/aorm/helper"
 	"reflect"
 	"strings"
 )
-
-type FieldInfo struct {
-	TablePointer uintptr
-	Name         string
-}
 
 type GroupItem struct {
 	Prefix string
@@ -56,28 +52,6 @@ type JoinCondition struct {
 	AliasOfOtherTable   string
 }
 
-//Store 保存到缓存
-func Store(destList ...interface{}) {
-	for i := 0; i < len(destList); i++ {
-		dest := destList[i]
-		valueOf := reflect.ValueOf(dest)
-		typeof := reflect.TypeOf(dest)
-
-		tablePointer := valueOf.Pointer()
-		setTableMap(tablePointer, typeof.String())
-
-		for j := 0; j < valueOf.Elem().NumField(); j++ {
-			addr := valueOf.Elem().Field(j).Addr().Pointer()
-			name := typeof.Elem().Field(j).Name
-
-			setFieldMap(addr, FieldInfo{
-				TablePointer: tablePointer,
-				Name:         name,
-			})
-		}
-	}
-}
-
 //GenWhereItem 产生一个 WhereItem,用作 where 条件里
 func GenWhereItem(field interface{}, opt string, val interface{}, prefix ...string) WhereItem {
 	return WhereItem{getPrefixByField(field, prefix...), field, opt, val}
@@ -116,9 +90,9 @@ func getPrefixByField(field interface{}, prefix ...string) string {
 		valueOf := reflect.ValueOf(field)
 		if reflect.Ptr == valueOf.Kind() {
 			fieldPointer := valueOf.Pointer()
-			tablePointer := getFieldMap(fieldPointer).TablePointer
+			tablePointer := cache.GetFieldMap(fieldPointer).TablePointer
 
-			tableName := getTableMap(tablePointer)
+			tableName := cache.GetTableMap(tablePointer)
 			strArr := strings.Split(tableName, ".")
 			str = helper.UnderLine(strArr[len(strArr)-1])
 		} else {
@@ -137,7 +111,7 @@ func getTableNameByTable(table interface{}) string {
 
 	valueOf := reflect.ValueOf(table)
 	if reflect.Ptr == valueOf.Kind() {
-		tableName := getTableMap(valueOf.Pointer())
+		tableName := cache.GetTableMap(valueOf.Pointer())
 		strArr := strings.Split(tableName, ".")
 		return helper.UnderLine(strArr[len(strArr)-1])
 	} else {
@@ -145,7 +119,60 @@ func getTableNameByTable(table interface{}) string {
 	}
 }
 
-func getWhereStrForJoin(aliasOfCurrentTable string, joinCondition []JoinCondition, paramList []interface{}) (string, []interface{}) {
+//getFieldName 根据传入字段，获取字段名
+func getFieldName(field interface{}) string {
+	valueOf := reflect.ValueOf(field)
+	if reflect.Ptr == valueOf.Kind() {
+		return helper.UnderLine(cache.GetFieldMap(reflect.ValueOf(field).Pointer()).Name)
+	} else {
+		return fmt.Sprintf("%v", field)
+	}
+}
+
+//反射表名,优先从方法获取,没有方法则从名字获取
+func getTableNameByReflect(typeOf reflect.Type) string {
+	method, isSet := typeOf.MethodByName("TableName")
+	fmt.Println("=isSet=")
+	fmt.Println(typeOf)
+	fmt.Println(isSet)
+	if isSet {
+		res := method.Func.Call(nil)
+		return res[0].String()
+	} else {
+		arr := strings.Split(typeOf.String(), ".")
+		return helper.UnderLine(arr[len(arr)-1])
+	}
+}
+
+//从结构体反射出来的属性名
+func getFieldMapByReflect(destValue reflect.Value, destType reflect.Type) map[string]int {
+	fieldNameMap := make(map[string]int)
+	for i := 0; i < destValue.NumField(); i++ {
+		fieldNameMap[destType.Field(i).Name] = i
+	}
+
+	return fieldNameMap
+}
+
+//获取赋值的地址
+func getScansAddr(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
+	var scans []interface{}
+	for _, columnName := range columnNameList {
+		fieldName := helper.CamelString(strings.ToLower(columnName))
+		index, ok := fieldNameMap[fieldName]
+		if ok {
+			scans = append(scans, destValue.Field(index).Addr().Interface())
+		} else {
+			var emptyVal interface{}
+			scans = append(scans, &emptyVal)
+		}
+	}
+
+	return scans
+}
+
+//产生关联查询条件
+func genJoinConditionStr(aliasOfCurrentTable string, joinCondition []JoinCondition, paramList []interface{}) (string, []interface{}) {
 	var sqlList []string
 	for i := 0; i < len(joinCondition); i++ {
 		fieldNameOfCurrentTable := getFieldName(joinCondition[i].FieldOfCurrentTable)
@@ -165,16 +192,6 @@ func getWhereStrForJoin(aliasOfCurrentTable string, joinCondition []JoinConditio
 	}
 
 	return strings.Join(sqlList, " AND "), paramList
-}
-
-//getFieldName 根据传入字段，获取字段名
-func getFieldName(field interface{}) string {
-	valueOf := reflect.ValueOf(field)
-	if reflect.Ptr == valueOf.Kind() {
-		return helper.UnderLine(getFieldMap(reflect.ValueOf(field).Pointer()).Name)
-	} else {
-		return fmt.Sprintf("%v", field)
-	}
 }
 
 //将一个interface抽取成数组
@@ -204,44 +221,4 @@ func toAnyArr(val any) []any {
 	}
 
 	return values
-}
-
-//反射表名,优先从方法获取,没有方法则从名字获取
-func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
-	method, isSet := typeOf.MethodByName("TableName")
-	if isSet {
-		var paramList []reflect.Value
-		paramList = append(paramList, valueOf)
-		res := method.Func.Call(paramList)
-		return res[0].String()
-	} else {
-		arr := strings.Split(typeOf.String(), ".")
-		return helper.UnderLine(arr[len(arr)-1])
-	}
-}
-
-//从结构体反射出来的属性名
-func getFieldMapByReflect(destValue reflect.Value, destType reflect.Type) map[string]int {
-	fieldNameMap := make(map[string]int)
-	for i := 0; i < destValue.NumField(); i++ {
-		fieldNameMap[destType.Field(i).Name] = i
-	}
-
-	return fieldNameMap
-}
-
-func getScans(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
-	var scans []interface{}
-	for _, columnName := range columnNameList {
-		fieldName := helper.CamelString(strings.ToLower(columnName))
-		index, ok := fieldNameMap[fieldName]
-		if ok {
-			scans = append(scans, destValue.Field(index).Addr().Interface())
-		} else {
-			var emptyVal interface{}
-			scans = append(scans, &emptyVal)
-		}
-	}
-
-	return scans
 }

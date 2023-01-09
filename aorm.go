@@ -3,6 +3,7 @@ package aorm
 import (
 	"database/sql" //只需导入你需要的驱动即可
 	"github.com/tangpanqing/aorm/builder"
+	"github.com/tangpanqing/aorm/cache"
 	"github.com/tangpanqing/aorm/migrator"
 	"github.com/tangpanqing/aorm/model"
 )
@@ -14,7 +15,7 @@ type DbContent struct {
 }
 
 func Store(destList ...interface{}) {
-	builder.Store(destList...)
+	cache.Store(destList...)
 }
 
 //Open 开始一个数据库连接
@@ -30,19 +31,15 @@ func Open(driverName string, dataSourceName string) (DbContent, error) {
 	}, nil
 }
 
-// Use 开始一个数据库操作
-func Use(linkCommon model.LinkCommon) *builder.Builder {
-	executor := &builder.Builder{
-		LinkCommon: linkCommon,
+// Db 开始一个数据库操作
+func Db(linkCommon ...model.LinkCommon) *builder.Builder {
+	b := &builder.Builder{}
+
+	if len(linkCommon) > 0 {
+		b.LinkCommon = linkCommon[0]
 	}
 
-	return executor
-}
-
-// Sub 子查询
-func Sub() *builder.Builder {
-	executor := &builder.Builder{}
-	return executor
+	return b
 }
 
 // Migrator 开始一个数据库迁移
@@ -52,21 +49,3 @@ func Migrator(linkCommon model.LinkCommon) *migrator.Migrator {
 	}
 	return mi
 }
-
-//清空查询条件,复用对象
-//func (ex *builder.Executor) clear() {
-//	ex.tableName = ""
-//	ex.selectList = make([]string, 0)
-//	ex.groupList = make([]string, 0)
-//	ex.whereList = make([]builder.WhereItem, 0)
-//	ex.joinList = make([]string, 0)
-//	ex.havingList = make([]builder.WhereItem, 0)
-//	ex.orderList = make([]string, 0)
-//	ex.offset = 0
-//	ex.pageSize = 0
-//	ex.isDebug = false
-//	ex.isLockForUpdate = false
-//	ex.sql = ""
-//	ex.paramList = make([]interface{}, 0)
-//	ex.opinionList = make([]OpinionItem, 0)
-//}

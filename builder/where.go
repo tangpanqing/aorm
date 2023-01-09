@@ -12,7 +12,7 @@ func (b *Builder) Where(dest interface{}) *Builder {
 
 	//如果没有设置表名
 	if b.tableName == "" {
-		b.tableName = getTableNameByReflect(typeOf, valueOf)
+		b.tableName = getTableNameByReflect(typeOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {

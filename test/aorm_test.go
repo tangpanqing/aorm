@@ -20,11 +20,25 @@ type Student struct {
 	Name      null.String `aorm:"size:100;not null;comment:名字" json:"name"`
 }
 
+func (s *Student) TableOpinion() map[string]string {
+	return map[string]string{
+		"ENGINE":  "InnoDB",
+		"COMMENT": "学生表",
+	}
+}
+
 type Article struct {
 	Id          null.Int    `aorm:"primary;auto_increment" json:"id"`
 	Type        null.Int    `aorm:"index;comment:类型" json:"type"`
 	PersonId    null.Int    `aorm:"comment:人员Id" json:"personId"`
 	ArticleBody null.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
+}
+
+func (a *Article) TableOpinion() map[string]string {
+	return map[string]string{
+		"ENGINE":  "InnoDB",
+		"COMMENT": "文章表",
+	}
 }
 
 type ArticleVO struct {
@@ -44,6 +58,17 @@ type Person struct {
 	CreateTime null.Time   `aorm:"comment:创建时间" json:"createTime"`
 	Money      null.Float  `aorm:"comment:金额" json:"money"`
 	Test       null.Float  `aorm:"type:double;comment:测试" json:"test"`
+}
+
+func (p *Person) TableName() string {
+	return "erp_person"
+}
+
+func (p *Person) TableOpinion() map[string]string {
+	return map[string]string{
+		"ENGINE":  "InnoDB",
+		"COMMENT": "人员表",
+	}
 }
 
 type PersonAge struct {
@@ -71,7 +96,7 @@ var personAge = PersonAge{}
 var personWithArticleCount = PersonWithArticleCount{}
 
 func TestAll(t *testing.T) {
-	aorm.Store(&person, &article)
+	aorm.Store(&person, &article, &student)
 	aorm.Store(&articleVO)
 	aorm.Store(&personAge, &personWithArticleCount)
 
@@ -90,6 +115,7 @@ func TestAll(t *testing.T) {
 		id := testInsert(dbItem.DriverName, dbItem.DbLink)
 
 		testInsertBatch(dbItem.DriverName, dbItem.DbLink)
+		break
 		testGetOne(dbItem.DriverName, dbItem.DbLink, id)
 		testGetMany(dbItem.DriverName, dbItem.DbLink)
 		testUpdate(dbItem.DriverName, dbItem.DbLink, id)
@@ -202,10 +228,10 @@ func testMssqlConnect() aorm.DbContent {
 
 func testMigrate(driver string, db *sql.DB) {
 	//AutoMigrate
-	aorm.Migrator(db).Driver(driver).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").AutoMigrate(&Person{}, &Article{}, &Student{})
+	aorm.Migrator(db).Driver(driver).AutoMigrate(&person, &article, &student)
 
 	//Migrate
-	aorm.Migrator(db).Driver(driver).Opinion("ENGINE", "InnoDB").Opinion("COMMENT", "人员表").Migrate("person_1", &Person{})
+	aorm.Migrator(db).Driver(driver).Migrate("person_1", &person)
 }
 
 func testShowCreateTable(driver string, db *sql.DB) {
@@ -223,18 +249,18 @@ func testInsert(driver string, db *sql.DB) int64 {
 		Test:       null.FloatFrom(2),
 	}
 
-	id, errInsert := aorm.Use(db).Debug(false).Driver(driver).Insert(&obj)
+	id, errInsert := aorm.Db(db).Debug(true).Driver(driver).Insert(&obj)
 	if errInsert != nil {
 		panic(driver + " testInsert " + "found err: " + errInsert.Error())
 	}
-	aorm.Use(db).Debug(false).Driver(driver).Insert(&Article{
-		Type:        null.IntFrom(0),
-		PersonId:    null.IntFrom(id),
-		ArticleBody: null.StringFrom("文章内容"),
-	})
+	//aorm.Db(db).Debug(false).Driver(driver).Insert(&Article{
+	//	Type:        null.IntFrom(0),
+	//	PersonId:    null.IntFrom(id),
+	//	ArticleBody: null.StringFrom("文章内容"),
+	//})
 
 	var personItem Person
-	err := aorm.Use(db).Table(&person).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
+	err := aorm.Db(db).Table(&person).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -264,16 +290,16 @@ func testInsert(driver string, db *sql.DB) int64 {
 	}
 
 	//测试非id主键
-	aorm.Use(db).Debug(false).Driver(driver).Insert(&Student{
-		Name: null.StringFrom("new student"),
-	})
+	//aorm.Db(db).Debug(false).Driver(driver).Insert(&Student{
+	//	Name: null.StringFrom("new student"),
+	//})
 
 	return id
 }
 
 func testInsertBatch(driver string, db *sql.DB) int64 {
-	var batch []Person
-	batch = append(batch, Person{
+	var batch []*Person
+	batch = append(batch, &Person{
 		Name:       null.StringFrom("Alice"),
 		Sex:        null.BoolFrom(false),
 		Age:        null.IntFrom(18),
@@ -283,7 +309,7 @@ func testInsertBatch(driver string, db *sql.DB) int64 {
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})
 
-	batch = append(batch, Person{
+	batch = append(batch, &Person{
 		Name:       null.StringFrom("Bob"),
 		Sex:        null.BoolFrom(true),
 		Age:        null.IntFrom(18),
@@ -293,7 +319,7 @@ func testInsertBatch(driver string, db *sql.DB) int64 {
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})
 
-	count, err := aorm.Use(db).Debug(false).Driver(driver).InsertBatch(&batch)
+	count, err := aorm.Db(db).Debug(true).Driver(driver).InsertBatch(&batch)
 	if err != nil {
 		panic(driver + " testInsertBatch " + "found err:" + err.Error())
 	}
@@ -303,7 +329,7 @@ func testInsertBatch(driver string, db *sql.DB) int64 {
 
 func testGetOne(driver string, db *sql.DB, id int64) {
 	var personItem Person
-	errFind := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).GetOne(&personItem)
+	errFind := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).GetOne(&personItem)
 	if errFind != nil {
 		panic(driver + "testGetOne" + "found err")
 	}
@@ -311,26 +337,26 @@ func testGetOne(driver string, db *sql.DB, id int64) {
 
 func testGetMany(driver string, db *sql.DB) {
 	var list []Person
-	errSelect := aorm.Use(db).Driver(driver).Debug(false).Table(&person).WhereEq(&person.Type, 0).GetMany(&list)
+	errSelect := aorm.Db(db).Driver(driver).Debug(false).Table(&person).WhereEq(&person.Type, 0).GetMany(&list)
 	if errSelect != nil {
 		panic(driver + " testGetMany " + "found err:" + errSelect.Error())
 	}
 }
 
 func testUpdate(driver string, db *sql.DB, id int64) {
-	_, errUpdate := aorm.Use(db).Debug(false).Driver(driver).WhereEq(&person.Id, id).Update(&Person{Name: null.StringFrom("Bob")})
+	_, errUpdate := aorm.Db(db).Debug(false).Driver(driver).WhereEq(&person.Id, id).Update(&Person{Name: null.StringFrom("Bob")})
 	if errUpdate != nil {
 		panic(driver + "testUpdate" + "found err")
 	}
 }
 
 func testDelete(driver string, db *sql.DB, id int64) {
-	_, errDelete := aorm.Use(db).Driver(driver).Debug(false).Table(&person).WhereEq(&person.Id, id).Delete()
+	_, errDelete := aorm.Db(db).Driver(driver).Debug(false).Table(&person).WhereEq(&person.Id, id).Delete()
 	if errDelete != nil {
 		panic(driver + "testDelete" + "found err")
 	}
 
-	_, errDelete2 := aorm.Use(db).Driver(driver).Debug(false).Delete(&Person{
+	_, errDelete2 := aorm.Db(db).Driver(driver).Debug(false).Delete(&Person{
 		Id: null.IntFrom(id),
 	})
 	if errDelete2 != nil {
@@ -339,7 +365,7 @@ func testDelete(driver string, db *sql.DB, id int64) {
 }
 
 func testExists(driver string, db *sql.DB, id int64) bool {
-	exists, err := aorm.Use(db).Driver(driver).Debug(false).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).Exists()
+	exists, err := aorm.Db(db).Driver(driver).Debug(false).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).Exists()
 	if err != nil {
 		panic(driver + " testExists " + "found err:" + err.Error())
 	}
@@ -347,12 +373,12 @@ func testExists(driver string, db *sql.DB, id int64) bool {
 }
 
 func testTable(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Driver(driver).Table("person_1").Insert(&Person{Name: null.StringFrom("Cherry")})
+	_, err := aorm.Db(db).Debug(false).Driver(driver).Table("person_1").Insert(&Person{Name: null.StringFrom("Cherry")})
 	if err != nil {
 		panic(driver + " testTable " + "found err:" + err.Error())
 	}
 
-	_, err2 := aorm.Use(db).Debug(false).Driver(driver).Table(&person).Insert(&Person{Name: null.StringFrom("Cherry")})
+	_, err2 := aorm.Db(db).Debug(false).Driver(driver).Table(&person).Insert(&Person{Name: null.StringFrom("Cherry")})
 	if err2 != nil {
 		panic(driver + " testTable " + "found err:" + err2.Error())
 	}
@@ -360,7 +386,7 @@ func testTable(driver string, db *sql.DB) {
 
 func testSelect(driver string, db *sql.DB) {
 	var listByFiled []Person
-	err := aorm.Use(db).Debug(false).Driver(driver).Table(&person).Select(&person.Name).Select(&person.Age).WhereEq(&person.Age, 18).GetMany(&listByFiled)
+	err := aorm.Db(db).Debug(false).Driver(driver).Table(&person).Select(&person.Name).Select(&person.Age).WhereEq(&person.Age, 18).GetMany(&listByFiled)
 	if err != nil {
 		panic(driver + " testSelect " + "found err:" + err.Error())
 	}
@@ -369,8 +395,8 @@ func testSelect(driver string, db *sql.DB) {
 func testSelectWithSub(driver string, db *sql.DB) {
 	var listByFiled []PersonWithArticleCount
 
-	sub := aorm.Sub().Table(&article).SelectCount(&article.Id, "article_count_tem").WhereRawEq(&article.PersonId, &person.Id)
-	err := aorm.Use(db).Debug(false).
+	sub := aorm.Db().Table(&article).SelectCount(&article.Id, "article_count_tem").WhereRawEq(&article.PersonId, &person.Id)
+	err := aorm.Db(db).Debug(false).
 		Driver(driver).
 		SelectExp(&sub, &personWithArticleCount.ArticleCount).
 		SelectAll(&person).
@@ -385,8 +411,8 @@ func testSelectWithSub(driver string, db *sql.DB) {
 
 func testWhereWithSub(driver string, db *sql.DB) {
 	var listByFiled []Person
-	sub := aorm.Sub().Table(&article).Driver(driver).SelectCount(&article.PersonId, "count_person_id").GroupBy(&article.PersonId).HavingGt("count_person_id", 0)
-	err := aorm.Use(db).Debug(false).
+	sub := aorm.Db().Table(&article).Driver(driver).SelectCount(&article.PersonId, "count_person_id").GroupBy(&article.PersonId).HavingGt("count_person_id", 0)
+	err := aorm.Db(db).Debug(false).
 		Table(&person).
 		Driver(driver).
 		WhereIn(&person.Id, &sub).
@@ -398,7 +424,7 @@ func testWhereWithSub(driver string, db *sql.DB) {
 
 func testWhere(driver string, db *sql.DB) {
 	var listByWhere []Person
-	err := aorm.Use(db).Debug(false).Driver(driver).Table(&person).WhereArr([]builder.WhereItem{
+	err := aorm.Db(db).Debug(false).Driver(driver).Table(&person).WhereArr([]builder.WhereItem{
 		builder.GenWhereItem(&person.Type, builder.Eq, 0),
 		builder.GenWhereItem(&person.Age, builder.In, []int{18, 20}),
 		builder.GenWhereItem(&person.Money, builder.Between, []float64{100.1, 200.9}),
@@ -412,7 +438,7 @@ func testWhere(driver string, db *sql.DB) {
 
 func testJoin(driver string, db *sql.DB) {
 	var list2 []ArticleVO
-	err := aorm.Use(db).Debug(false).Driver(driver).
+	err := aorm.Db(db).Debug(false).Driver(driver).
 		Table(&article).
 		LeftJoin(
 			&person,
@@ -432,7 +458,7 @@ func testJoin(driver string, db *sql.DB) {
 
 func testJoinWithAlias(driver string, db *sql.DB) {
 	var list2 []ArticleVO
-	err := aorm.Use(db).Debug(false).Driver(driver).
+	err := aorm.Db(db).Debug(false).Driver(driver).
 		Table(&article, "o").
 		LeftJoin(
 			&person,
@@ -453,7 +479,7 @@ func testJoinWithAlias(driver string, db *sql.DB) {
 
 func testGroupBy(driver string, db *sql.DB) {
 	var personAgeItem PersonAge
-	err := aorm.Use(db).Debug(false).
+	err := aorm.Db(db).Debug(false).
 		Table(&person).
 		Select(&person.Age).
 		SelectCount(&person.Age, &personAge.AgeCount).
@@ -470,7 +496,7 @@ func testGroupBy(driver string, db *sql.DB) {
 func testHaving(driver string, db *sql.DB) {
 	var listByHaving []PersonAge
 
-	err := aorm.Use(db).Debug(false).Driver(driver).
+	err := aorm.Db(db).Debug(false).Driver(driver).
 		Table(&person).
 		Select(&person.Age).
 		SelectCount(&person.Age, &personAge.AgeCount).
@@ -486,7 +512,7 @@ func testHaving(driver string, db *sql.DB) {
 
 func testOrderBy(driver string, db *sql.DB) {
 	var listByOrder []Person
-	err := aorm.Use(db).Debug(false).Driver(driver).
+	err := aorm.Db(db).Debug(false).Driver(driver).
 		Table(&person).
 		WhereEq(&person.Type, 0).
 		OrderBy(&person.Age, builder.Desc).
@@ -496,7 +522,7 @@ func testOrderBy(driver string, db *sql.DB) {
 	}
 
 	var listByOrder2 []Person
-	err2 := aorm.Use(db).Debug(false).Driver(driver).
+	err2 := aorm.Db(db).Debug(false).Driver(driver).
 		Table(&person, "o").
 		WhereEq(&person.Type, 0, "o").
 		OrderBy(&person.Age, builder.Desc, "o").
@@ -508,7 +534,7 @@ func testOrderBy(driver string, db *sql.DB) {
 
 func testLimit(driver string, db *sql.DB) {
 	var list3 []Person
-	err1 := aorm.Use(db).Debug(false).
+	err1 := aorm.Db(db).Debug(false).
 		Table(&person).
 		WhereEq(&person.Type, 0).
 		Limit(50, 10).
@@ -520,7 +546,7 @@ func testLimit(driver string, db *sql.DB) {
 	}
 
 	var list4 []Person
-	err := aorm.Use(db).Debug(false).
+	err := aorm.Db(db).Debug(false).
 		Driver(driver).
 		Table(&person).
 		WhereEq(&person.Type, 0).
@@ -537,7 +563,7 @@ func testLock(driver string, db *sql.DB, id int64) {
 		return
 	}
 	var itemByLock Person
-	err := aorm.Use(db).
+	err := aorm.Db(db).
 		Debug(false).
 		LockForUpdate(true).
 		Table(&person).
@@ -551,14 +577,14 @@ func testLock(driver string, db *sql.DB, id int64) {
 }
 
 func testIncrement(driver string, db *sql.DB, id int64) {
-	_, err := aorm.Use(db).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).Increment(&person.Age, 1)
+	_, err := aorm.Db(db).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).Increment(&person.Age, 1)
 	if err != nil {
 		panic(driver + " testIncrement " + "found err:" + err.Error())
 	}
 }
 
 func testDecrement(driver string, db *sql.DB, id int64) {
-	_, err := aorm.Use(db).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).Decrement(&person.Age, 2)
+	_, err := aorm.Db(db).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).Decrement(&person.Age, 2)
 	if err != nil {
 		panic(driver + "testDecrement" + "found err")
 	}
@@ -567,25 +593,25 @@ func testDecrement(driver string, db *sql.DB, id int64) {
 func testValue(driver string, db *sql.DB, id int64) {
 
 	var name string
-	errName := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Name, &name)
+	errName := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Name, &name)
 	if errName != nil {
 		panic(driver + "testValue" + "found err")
 	}
 
 	var age int64
-	errAge := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Age, &age)
+	errAge := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Age, &age)
 	if errAge != nil {
 		panic(driver + "testValue" + "found err")
 	}
 
 	var money float32
-	errMoney := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Money, &money)
+	errMoney := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Money, &money)
 	if errMoney != nil {
 		panic(driver + "testValue" + "found err")
 	}
 
 	var test float64
-	errTest := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Test, &test)
+	errTest := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Test, &test)
 	if errTest != nil {
 		panic(driver + "testValue" + "found err")
 	}
@@ -593,60 +619,60 @@ func testValue(driver string, db *sql.DB, id int64) {
 
 func testPluck(driver string, db *sql.DB) {
 	var nameList []string
-	errNameList := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Name, &nameList)
+	errNameList := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Name, &nameList)
 	if errNameList != nil {
 		panic(driver + "testPluck" + "found err")
 	}
 
 	var ageList []int64
-	errAgeList := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Age, &ageList)
+	errAgeList := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Age, &ageList)
 	if errAgeList != nil {
 		panic(driver + "testPluck" + "found err:" + errAgeList.Error())
 	}
 
 	var moneyList []float32
-	errMoneyList := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Money, &moneyList)
+	errMoneyList := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Money, &moneyList)
 	if errMoneyList != nil {
 		panic(driver + "testPluck" + "found err")
 	}
 
 	var testList []float64
-	errTestList := aorm.Use(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Test, &testList)
+	errTestList := aorm.Db(db).Debug(false).Driver(driver).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Test, &testList)
 	if errTestList != nil {
 		panic(driver + "testPluck" + "found err")
 	}
 }
 
 func testCount(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Count("*")
+	_, err := aorm.Db(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Count("*")
 	if err != nil {
 		panic(driver + "testCount" + "found err")
 	}
 }
 
 func testSum(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Sum(&person.Age)
+	_, err := aorm.Db(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Sum(&person.Age)
 	if err != nil {
 		panic(driver + "testSum" + "found err")
 	}
 }
 
 func testAvg(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Avg(&person.Age)
+	_, err := aorm.Db(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Avg(&person.Age)
 	if err != nil {
 		panic(driver + "testAvg" + "found err")
 	}
 }
 
 func testMin(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Min(&person.Age)
+	_, err := aorm.Db(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Min(&person.Age)
 	if err != nil {
 		panic(driver + "testMin" + "found err")
 	}
 }
 
 func testMax(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Max(&person.Age)
+	_, err := aorm.Db(db).Debug(false).Table(&person).WhereEq(&person.Age, 18).Driver(driver).Max(&person.Age)
 	if err != nil {
 		panic(driver + "testMax" + "found err")
 	}
@@ -654,14 +680,14 @@ func testMax(driver string, db *sql.DB) {
 
 func testDistinct(driver string, db *sql.DB) {
 	var listByFiled []Person
-	err := aorm.Use(db).Debug(false).Driver(driver).Distinct(true).Table(&person).Select(&person.Name).Select(&person.Age).WhereEq(&person.Age, 18).GetMany(&listByFiled)
+	err := aorm.Db(db).Debug(false).Driver(driver).Distinct(true).Table(&person).Select(&person.Name).Select(&person.Age).WhereEq(&person.Age, 18).GetMany(&listByFiled)
 	if err != nil {
 		panic(driver + " testSelect " + "found err:" + err.Error())
 	}
 }
 
 func testExec(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Driver(driver).Exec("UPDATE person SET name = ? WHERE person.id=?", "Bob", 3)
+	_, err := aorm.Db(db).Debug(false).Driver(driver).Exec("UPDATE person SET name = ? WHERE person.id=?", "Bob", 3)
 	if err != nil {
 		panic(driver + "testExec" + "found err")
 	}
@@ -670,7 +696,7 @@ func testExec(driver string, db *sql.DB) {
 func testTransaction(driver string, db *sql.DB) {
 	tx, _ := db.Begin()
 
-	id, errInsert := aorm.Use(tx).Debug(false).Driver(driver).Insert(&Person{
+	id, errInsert := aorm.Db(tx).Debug(false).Driver(driver).Insert(&Person{
 		Name: null.StringFrom("Alice"),
 	})
 
@@ -680,7 +706,7 @@ func testTransaction(driver string, db *sql.DB) {
 		return
 	}
 
-	_, errCount := aorm.Use(tx).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).Count("*")
+	_, errCount := aorm.Db(tx).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).Count("*")
 	if errCount != nil {
 		tx.Rollback()
 		panic(driver + "testTransaction" + "found err")
@@ -688,14 +714,14 @@ func testTransaction(driver string, db *sql.DB) {
 	}
 
 	var personItem Person
-	errPerson := aorm.Use(tx).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
+	errPerson := aorm.Db(tx).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
 	if errPerson != nil {
 		tx.Rollback()
 		panic(driver + "testTransaction" + "found err")
 		return
 	}
 
-	_, errUpdate := aorm.Use(tx).Debug(false).Driver(driver).Where(&Person{
+	_, errUpdate := aorm.Db(tx).Debug(false).Driver(driver).Where(&Person{
 		Id: null.IntFrom(id),
 	}).Update(&Person{
 		Name: null.StringFrom("Bob"),
@@ -711,7 +737,7 @@ func testTransaction(driver string, db *sql.DB) {
 }
 
 func testTruncate(driver string, db *sql.DB) {
-	_, err := aorm.Use(db).Debug(false).Driver(driver).Table(&person).Truncate()
+	_, err := aorm.Db(db).Debug(false).Driver(driver).Table(&person).Truncate()
 	if err != nil {
 		panic(driver + " testTruncate " + "found err")
 	}

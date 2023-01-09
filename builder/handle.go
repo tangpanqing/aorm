@@ -84,7 +84,7 @@ func (b *Builder) handleSet(typeOf reflect.Type, valueOf reflect.Value, paramLis
 
 	//如果没有设置表名
 	if b.tableName == "" {
-		b.tableName = getTableNameByReflect(typeOf, valueOf)
+		b.tableName = getTableNameByReflect(typeOf)
 	}
 
 	var keys []string
@@ -112,7 +112,7 @@ func (b *Builder) handleJoin(paramList []interface{}) (string, []interface{}) {
 	for i := 0; i < len(b.joinList); i++ {
 		joinItem := b.joinList[i]
 
-		str, paramList2 := getWhereStrForJoin(joinItem.tableAlias, joinItem.condition, paramList)
+		str, paramList2 := genJoinConditionStr(joinItem.tableAlias, joinItem.condition, paramList)
 		paramList = paramList2
 
 		sqlItem := joinItem.joinType + " " + getTableNameByTable(joinItem.table) + " " + joinItem.tableAlias + " ON " + str

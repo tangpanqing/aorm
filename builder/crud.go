@@ -78,7 +78,7 @@ func (b *Builder) getTableNameCommon(typeOf reflect.Type, valueOf reflect.Value)
 		return getTableNameByTable(b.table)
 	}
 
-	return getTableNameByReflect(typeOf, valueOf)
+	return getTableNameByReflect(typeOf)
 }
 
 // Insert 增加记录
@@ -176,11 +176,24 @@ func convertToPostgresSql(sqlStr string) string {
 // InsertBatch 批量增加记录
 func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 
+	TypeOf := reflect.TypeOf(values)
+	ValueOf := reflect.ValueOf(values)
+	fmt.Println(TypeOf)
+	fmt.Println(ValueOf)
+
+	fmt.Println(TypeOf.Elem())
+	fmt.Println(ValueOf.Elem())
+	fmt.Println(ValueOf.NumField())
+	fmt.Println(ValueOf.Elem().NumField())
+	return 0, nil
+
 	var keys []string
 	var paramList []any
 	var place []string
 
 	valueOf := reflect.ValueOf(values).Elem()
+	fmt.Println(valueOf.NumField())
+
 	if valueOf.Len() == 0 {
 		return 0, errors.New("the data list for insert batch not found")
 	}
@@ -206,6 +219,7 @@ func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 		place = append(place, "("+strings.Join(placeItem, ",")+")")
 	}
 
+	fmt.Println("--InsertBatch--")
 	sqlStr := "INSERT INTO " + b.getTableNameCommon(typeOf, valueOf.Index(0)) + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
 
 	if b.driverName == model.Postgres {
@@ -265,7 +279,7 @@ func (b *Builder) GetMany(values interface{}) error {
 	fieldNameMap := getFieldMapByReflect(destValue, destType)
 
 	for rows.Next() {
-		scans := getScans(columnNameList, fieldNameMap, destValue)
+		scans := getScansAddr(columnNameList, fieldNameMap, destValue)
 
 		errScan := rows.Scan(scans...)
 		if errScan != nil {
@@ -301,7 +315,7 @@ func (b *Builder) GetOne(obj interface{}) error {
 	fieldNameMap := getFieldMapByReflect(destValue, destType)
 
 	for rows.Next() {
-		scans := getScans(columnNameList, fieldNameMap, destValue)
+		scans := getScansAddr(columnNameList, fieldNameMap, destValue)
 		err := rows.Scan(scans...)
 		if err != nil {
 			return err

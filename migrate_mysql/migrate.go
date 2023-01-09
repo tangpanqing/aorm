@@ -54,7 +54,7 @@ func (mm *MigrateExecutor) ShowCreateTable(tableName string) string {
 
 //MigrateCommon 迁移的主要过程
 func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) error {
-	tableFromCode := mm.getTableFromCode(tableName)
+	tableFromCode := mm.getTableFromCode(tableName, typeOf)
 	columnsFromCode := mm.getColumnsFromCode(typeOf)
 	indexesFromCode := mm.getIndexesFromCode(typeOf, tableFromCode)
 
@@ -77,12 +77,25 @@ func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) 
 	return nil
 }
 
-func (mm *MigrateExecutor) getTableFromCode(tableName string) Table {
-	return Table{
+func (mm *MigrateExecutor) getTableFromCode(tableName string, typeOf reflect.Type) Table {
+	table := Table{
 		TableName:    null.StringFrom(tableName),
-		Engine:       null.StringFrom(mm.getOpinionVal("ENGINE", "MyISAM")),
-		TableComment: null.StringFrom(mm.getOpinionVal("COMMENT", "")),
+		Engine:       null.StringFrom("MyISAM"),
+		TableComment: null.StringFrom("''"),
 	}
+
+	method, isSet := typeOf.MethodByName("TableOpinion")
+	if isSet {
+		valueList := method.Func.Call(nil)
+		i := valueList[0].Interface()
+		m := i.(map[string]string)
+
+		m["COMMENT"] = "'" + m["COMMENT"] + "'"
+		table.Engine = null.StringFrom(m["ENGINE"])
+		table.TableComment = null.StringFrom(m["COMMENT"])
+	}
+
+	return table
 }
 
 func (mm *MigrateExecutor) getColumnsFromCode(typeOf reflect.Type) []Column {
