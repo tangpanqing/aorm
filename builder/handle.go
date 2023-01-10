@@ -84,7 +84,7 @@ func (b *Builder) handleSet(typeOf reflect.Type, valueOf reflect.Value, paramLis
 
 	//如果没有设置表名
 	if b.tableName == "" {
-		b.tableName = getTableNameByReflect(typeOf)
+		b.tableName = getTableNameByReflect(typeOf, valueOf)
 	}
 
 	var keys []string

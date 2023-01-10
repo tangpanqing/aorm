@@ -130,13 +130,12 @@ func getFieldName(field interface{}) string {
 }
 
 //反射表名,优先从方法获取,没有方法则从名字获取
-func getTableNameByReflect(typeOf reflect.Type) string {
+func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
 	method, isSet := typeOf.MethodByName("TableName")
-	fmt.Println("=isSet=")
-	fmt.Println(typeOf)
-	fmt.Println(isSet)
 	if isSet {
-		res := method.Func.Call(nil)
+		var paramList []reflect.Value
+		paramList = append(paramList, valueOf)
+		res := method.Func.Call(paramList)
 		return res[0].String()
 	} else {
 		arr := strings.Split(typeOf.String(), ".")

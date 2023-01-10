@@ -78,7 +78,7 @@ func (b *Builder) getTableNameCommon(typeOf reflect.Type, valueOf reflect.Value)
 		return getTableNameByTable(b.table)
 	}
 
-	return getTableNameByReflect(typeOf)
+	return getTableNameByReflect(typeOf, valueOf)
 }
 
 // Insert 增加记录
@@ -175,24 +175,11 @@ func convertToPostgresSql(sqlStr string) string {
 
 // InsertBatch 批量增加记录
 func (b *Builder) InsertBatch(values interface{}) (int64, error) {
-
-	TypeOf := reflect.TypeOf(values)
-	ValueOf := reflect.ValueOf(values)
-	fmt.Println(TypeOf)
-	fmt.Println(ValueOf)
-
-	fmt.Println(TypeOf.Elem())
-	fmt.Println(ValueOf.Elem())
-	fmt.Println(ValueOf.NumField())
-	fmt.Println(ValueOf.Elem().NumField())
-	return 0, nil
-
 	var keys []string
 	var paramList []any
 	var place []string
 
 	valueOf := reflect.ValueOf(values).Elem()
-	fmt.Println(valueOf.NumField())
 
 	if valueOf.Len() == 0 {
 		return 0, errors.New("the data list for insert batch not found")
@@ -202,15 +189,15 @@ func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 	for j := 0; j < valueOf.Len(); j++ {
 		var placeItem []string
 
-		for i := 0; i < valueOf.Index(j).NumField(); i++ {
-			isNotNull := valueOf.Index(j).Field(i).Field(0).Field(1).Bool()
+		for i := 0; i < valueOf.Index(j).Elem().NumField(); i++ {
+			isNotNull := valueOf.Index(j).Elem().Field(i).Field(0).Field(1).Bool()
 			if isNotNull {
 				if j == 0 {
-					key := helper.UnderLine(typeOf.Field(i).Name)
+					key := helper.UnderLine(typeOf.Elem().Field(i).Name)
 					keys = append(keys, key)
 				}
 
-				val := valueOf.Index(j).Field(i).Field(0).Field(0).Interface()
+				val := valueOf.Index(j).Elem().Field(i).Field(0).Field(0).Interface()
 				paramList = append(paramList, val)
 				placeItem = append(placeItem, "?")
 			}
@@ -219,7 +206,6 @@ func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 		place = append(place, "("+strings.Join(placeItem, ",")+")")
 	}
 
-	fmt.Println("--InsertBatch--")
 	sqlStr := "INSERT INTO " + b.getTableNameCommon(typeOf, valueOf.Index(0)) + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
 
 	if b.driverName == model.Postgres {

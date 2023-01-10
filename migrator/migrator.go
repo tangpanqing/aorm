@@ -58,18 +58,20 @@ func (mi *Migrator) AutoMigrate(destList ...interface{}) {
 	for i := 0; i < len(destList); i++ {
 		dest := destList[i]
 		typeOf := reflect.TypeOf(dest)
-		tableName := getTableNameByReflect(typeOf)
-		mi.migrateCommon(tableName, typeOf)
+		valueOf := reflect.ValueOf(dest)
+		tableName := getTableNameByReflect(typeOf, valueOf)
+		mi.migrateCommon(tableName, typeOf, valueOf)
 	}
 }
 
 // Migrate 自动迁移数据库结构,需要输入数据库名,表名
 func (mi *Migrator) Migrate(tableName string, dest interface{}) {
 	typeOf := reflect.TypeOf(dest)
-	mi.migrateCommon(tableName, typeOf)
+	valueOf := reflect.ValueOf(dest)
+	mi.migrateCommon(tableName, typeOf, valueOf)
 }
 
-func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
+func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type, valueOf reflect.Value) {
 	if mi.driverName == model.Mssql {
 		me := migrate_mssql.MigrateExecutor{
 			DriverName:  mi.driverName,
@@ -89,7 +91,7 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type) {
 				LinkCommon: mi.LinkCommon,
 			},
 		}
-		me.MigrateCommon(tableName, typeOf)
+		me.MigrateCommon(tableName, typeOf, valueOf)
 	}
 
 	if mi.driverName == model.Sqlite3 {
@@ -120,10 +122,12 @@ func (mi *Migrator) GetOpinionList() []model.OpinionItem {
 }
 
 //反射表名,优先从方法获取,没有方法则从名字获取
-func getTableNameByReflect(typeOf reflect.Type) string {
+func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
 	method, isSet := typeOf.MethodByName("TableName")
 	if isSet {
-		res := method.Func.Call(nil)
+		var paramList []reflect.Value
+		paramList = append(paramList, valueOf)
+		res := method.Func.Call(paramList)
 		return res[0].String()
 	} else {
 		arr := strings.Split(typeOf.String(), ".")

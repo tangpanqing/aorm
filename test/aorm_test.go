@@ -60,10 +60,6 @@ type Person struct {
 	Test       null.Float  `aorm:"type:double;comment:测试" json:"test"`
 }
 
-func (p *Person) TableName() string {
-	return "erp_person"
-}
-
 func (p *Person) TableOpinion() map[string]string {
 	return map[string]string{
 		"ENGINE":  "InnoDB",
@@ -100,11 +96,12 @@ func TestAll(t *testing.T) {
 	aorm.Store(&articleVO)
 	aorm.Store(&personAge, &personWithArticleCount)
 
-	dbList := make([]aorm.DbContent, 0)
-	dbList = append(dbList, testSqlite3Connect())
-	dbList = append(dbList, testMysqlConnect())
-	dbList = append(dbList, testPostgresConnect())
-	dbList = append(dbList, testMssqlConnect())
+	var dbList = []aorm.DbContent{
+		testMysqlConnect(),
+		testSqlite3Connect(),
+		testPostgresConnect(),
+		testMssqlConnect(),
+	}
 
 	for i := 0; i < len(dbList); i++ {
 		dbItem := dbList[i]
@@ -115,7 +112,6 @@ func TestAll(t *testing.T) {
 		id := testInsert(dbItem.DriverName, dbItem.DbLink)
 
 		testInsertBatch(dbItem.DriverName, dbItem.DbLink)
-		break
 		testGetOne(dbItem.DriverName, dbItem.DbLink, id)
 		testGetMany(dbItem.DriverName, dbItem.DbLink)
 		testUpdate(dbItem.DriverName, dbItem.DbLink, id)
@@ -227,10 +223,8 @@ func testMssqlConnect() aorm.DbContent {
 }
 
 func testMigrate(driver string, db *sql.DB) {
-	//AutoMigrate
 	aorm.Migrator(db).Driver(driver).AutoMigrate(&person, &article, &student)
 
-	//Migrate
 	aorm.Migrator(db).Driver(driver).Migrate("person_1", &person)
 }
 
@@ -249,15 +243,15 @@ func testInsert(driver string, db *sql.DB) int64 {
 		Test:       null.FloatFrom(2),
 	}
 
-	id, errInsert := aorm.Db(db).Debug(true).Driver(driver).Insert(&obj)
+	id, errInsert := aorm.Db(db).Debug(false).Driver(driver).Insert(&obj)
 	if errInsert != nil {
 		panic(driver + " testInsert " + "found err: " + errInsert.Error())
 	}
-	//aorm.Db(db).Debug(false).Driver(driver).Insert(&Article{
-	//	Type:        null.IntFrom(0),
-	//	PersonId:    null.IntFrom(id),
-	//	ArticleBody: null.StringFrom("文章内容"),
-	//})
+	aorm.Db(db).Debug(false).Driver(driver).Insert(&Article{
+		Type:        null.IntFrom(0),
+		PersonId:    null.IntFrom(id),
+		ArticleBody: null.StringFrom("文章内容"),
+	})
 
 	var personItem Person
 	err := aorm.Db(db).Table(&person).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
@@ -290,9 +284,9 @@ func testInsert(driver string, db *sql.DB) int64 {
 	}
 
 	//测试非id主键
-	//aorm.Db(db).Debug(false).Driver(driver).Insert(&Student{
-	//	Name: null.StringFrom("new student"),
-	//})
+	aorm.Db(db).Debug(false).Driver(driver).Insert(&Student{
+		Name: null.StringFrom("new student"),
+	})
 
 	return id
 }
@@ -319,7 +313,7 @@ func testInsertBatch(driver string, db *sql.DB) int64 {
 		Test:       null.FloatFrom(200.15987654321987654321),
 	})
 
-	count, err := aorm.Db(db).Debug(true).Driver(driver).InsertBatch(&batch)
+	count, err := aorm.Db(db).Debug(false).Driver(driver).InsertBatch(&batch)
 	if err != nil {
 		panic(driver + " testInsertBatch " + "found err:" + err.Error())
 	}

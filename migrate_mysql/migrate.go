@@ -53,8 +53,8 @@ func (mm *MigrateExecutor) ShowCreateTable(tableName string) string {
 }
 
 //MigrateCommon 迁移的主要过程
-func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) error {
-	tableFromCode := mm.getTableFromCode(tableName, typeOf)
+func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type, valueOf reflect.Value) error {
+	tableFromCode := mm.getTableFromCode(tableName, typeOf, valueOf)
 	columnsFromCode := mm.getColumnsFromCode(typeOf)
 	indexesFromCode := mm.getIndexesFromCode(typeOf, tableFromCode)
 
@@ -77,7 +77,7 @@ func (mm *MigrateExecutor) MigrateCommon(tableName string, typeOf reflect.Type) 
 	return nil
 }
 
-func (mm *MigrateExecutor) getTableFromCode(tableName string, typeOf reflect.Type) Table {
+func (mm *MigrateExecutor) getTableFromCode(tableName string, typeOf reflect.Type, valueOf reflect.Value) Table {
 	table := Table{
 		TableName:    null.StringFrom(tableName),
 		Engine:       null.StringFrom("MyISAM"),
@@ -86,7 +86,9 @@ func (mm *MigrateExecutor) getTableFromCode(tableName string, typeOf reflect.Typ
 
 	method, isSet := typeOf.MethodByName("TableOpinion")
 	if isSet {
-		valueList := method.Func.Call(nil)
+		var paramList []reflect.Value
+		paramList = append(paramList, valueOf)
+		valueList := method.Func.Call(paramList)
 		i := valueList[0].Interface()
 		m := i.(map[string]string)
 
