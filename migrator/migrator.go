@@ -117,10 +117,6 @@ func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type, valueOf
 	}
 }
 
-func (mi *Migrator) GetOpinionList() []model.OpinionItem {
-	return mi.opinionList
-}
-
 //反射表名,优先从方法获取,没有方法则从名字获取
 func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
 	method, isSet := typeOf.MethodByName("TableName")

@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/model"
 	"reflect"
 	"strings"
@@ -91,7 +90,8 @@ func (b *Builder) handleSet(typeOf reflect.Type, valueOf reflect.Value, paramLis
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := helper.UnderLine(typeOf.Elem().Field(i).Name)
+			key, _ := getFieldNameByReflect(typeOf.Elem().Field(i))
+
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 
 			keys = append(keys, key+"=?")

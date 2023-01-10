@@ -2,7 +2,6 @@ package builder
 
 import (
 	"fmt"
-	"github.com/tangpanqing/aorm/cache"
 	"github.com/tangpanqing/aorm/helper"
 	"reflect"
 	"strings"
@@ -90,9 +89,9 @@ func getPrefixByField(field interface{}, prefix ...string) string {
 		valueOf := reflect.ValueOf(field)
 		if reflect.Ptr == valueOf.Kind() {
 			fieldPointer := valueOf.Pointer()
-			tablePointer := cache.GetFieldMap(fieldPointer).TablePointer
+			tablePointer := getFieldMap(fieldPointer).TablePointer
 
-			tableName := cache.GetTableMap(tablePointer)
+			tableName := getTableMap(tablePointer)
 			strArr := strings.Split(tableName, ".")
 			str = helper.UnderLine(strArr[len(strArr)-1])
 		} else {
@@ -111,7 +110,7 @@ func getTableNameByTable(table interface{}) string {
 
 	valueOf := reflect.ValueOf(table)
 	if reflect.Ptr == valueOf.Kind() {
-		tableName := cache.GetTableMap(valueOf.Pointer())
+		tableName := getTableMap(valueOf.Pointer())
 		strArr := strings.Split(tableName, ".")
 		return helper.UnderLine(strArr[len(strArr)-1])
 	} else {
@@ -123,7 +122,7 @@ func getTableNameByTable(table interface{}) string {
 func getFieldName(field interface{}) string {
 	valueOf := reflect.ValueOf(field)
 	if reflect.Ptr == valueOf.Kind() {
-		return helper.UnderLine(cache.GetFieldMap(reflect.ValueOf(field).Pointer()).Name)
+		return helper.UnderLine(getFieldMap(reflect.ValueOf(field).Pointer()).Name)
 	} else {
 		return fmt.Sprintf("%v", field)
 	}

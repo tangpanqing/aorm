@@ -3,7 +3,6 @@ package aorm
 import (
 	"database/sql" //只需导入你需要的驱动即可
 	"github.com/tangpanqing/aorm/builder"
-	"github.com/tangpanqing/aorm/cache"
 	"github.com/tangpanqing/aorm/migrator"
 	"github.com/tangpanqing/aorm/model"
 )
@@ -15,7 +14,7 @@ type DbContent struct {
 }
 
 func Store(destList ...interface{}) {
-	cache.Store(destList...)
+	builder.Store(destList...)
 }
 
 //Open 开始一个数据库连接

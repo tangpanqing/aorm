@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/model"
 	"reflect"
 	"strconv"
@@ -81,6 +80,21 @@ func (b *Builder) getTableNameCommon(typeOf reflect.Type, valueOf reflect.Value)
 	return getTableNameByReflect(typeOf, valueOf)
 }
 
+func getTagMap(fieldTag string) map[string]string {
+	var fieldMap = make(map[string]string)
+	if "" != fieldTag {
+		tagArr := strings.Split(fieldTag, ";")
+		for j := 0; j < len(tagArr); j++ {
+			tagArrArr := strings.Split(tagArr[j], ":")
+			fieldMap[tagArrArr[0]] = ""
+			if len(tagArrArr) > 1 {
+				fieldMap[tagArrArr[0]] = tagArrArr[1]
+			}
+		}
+	}
+	return fieldMap
+}
+
 // Insert 增加记录
 func (b *Builder) Insert(dest interface{}) (int64, error) {
 	typeOf := reflect.TypeOf(dest)
@@ -93,12 +107,11 @@ func (b *Builder) Insert(dest interface{}) (int64, error) {
 	var paramList []any
 	var place []string
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
-		key := helper.UnderLine(typeOf.Elem().Field(i).Name)
+		key, tagMap := getFieldNameByReflect(typeOf.Elem().Field(i))
 
 		//如果是Postgres数据库，寻找主键
 		if b.driverName == model.Postgres {
-			tag := typeOf.Elem().Field(i).Tag.Get("aorm")
-			if -1 != strings.Index(tag, "primary") {
+			if _, ok := tagMap["primary"]; ok {
 				primaryKey = key
 			}
 		}
@@ -193,7 +206,7 @@ func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 			isNotNull := valueOf.Index(j).Elem().Field(i).Field(0).Field(1).Bool()
 			if isNotNull {
 				if j == 0 {
-					key := helper.UnderLine(typeOf.Elem().Field(i).Name)
+					key, _ := getFieldNameByReflect(typeOf.Elem().Field(i))
 					keys = append(keys, key)
 				}
 

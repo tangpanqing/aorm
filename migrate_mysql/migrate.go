@@ -106,6 +106,12 @@ func (mm *MigrateExecutor) getColumnsFromCode(typeOf reflect.Type) []Column {
 		fieldName := helper.UnderLine(typeOf.Elem().Field(i).Name)
 		fieldType := typeOf.Elem().Field(i).Type.Name()
 		fieldMap := getTagMap(typeOf.Elem().Field(i).Tag.Get("aorm"))
+
+		//如果tag里重新设置了字段名
+		if column, ok := fieldMap["column"]; ok {
+			fieldName = column
+		}
+
 		columnsFromCode = append(columnsFromCode, Column{
 			ColumnName:    null.StringFrom(fieldName),
 			DataType:      null.StringFrom(getDataType(fieldType, fieldMap)),

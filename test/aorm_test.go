@@ -107,6 +107,7 @@ func TestAll(t *testing.T) {
 		dbItem := dbList[i]
 
 		testMigrate(dbItem.DriverName, dbItem.DbLink)
+
 		testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
 
 		id := testInsert(dbItem.DriverName, dbItem.DbLink)
