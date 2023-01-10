@@ -17,13 +17,13 @@ func Store(destList ...interface{}) {
 		typeof := reflect.TypeOf(dest)
 
 		tablePointer := valueOf.Pointer()
-		setTableMap(tablePointer, getTableNameByReflect(typeof, valueOf))
+		tableName := getTableNameByReflect(typeof, valueOf)
+		setTableMap(tablePointer, tableName)
 
 		for j := 0; j < valueOf.Elem().NumField(); j++ {
-			addr := valueOf.Elem().Field(j).Addr().Pointer()
+			fieldPointer := valueOf.Elem().Field(j).Addr().Pointer()
 			key, _ := getFieldNameByReflect(typeof.Elem().Field(j))
-
-			setFieldMap(addr, model.FieldInfo{
+			setFieldMap(fieldPointer, model.FieldInfo{
 				TablePointer: tablePointer,
 				Name:         key,
 			})

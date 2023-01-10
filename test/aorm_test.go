@@ -111,7 +111,6 @@ func TestAll(t *testing.T) {
 		testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
 
 		id := testInsert(dbItem.DriverName, dbItem.DbLink)
-
 		testInsertBatch(dbItem.DriverName, dbItem.DbLink)
 		testGetOne(dbItem.DriverName, dbItem.DbLink, id)
 		testGetMany(dbItem.DriverName, dbItem.DbLink)
