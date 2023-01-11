@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/helper"
-	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/null"
 	"reflect"
 	"strconv"
@@ -33,20 +32,14 @@ type Index struct {
 
 //MigrateExecutor 定义结构
 type MigrateExecutor struct {
-	//驱动名字
-	DriverName string
-
-	//表属性
-	OpinionList []model.OpinionItem
-
 	//执行者
-	Ex *builder.Builder
+	Builder *builder.Builder
 }
 
 //ShowCreateTable 查看创建表的ddl
 func (mm *MigrateExecutor) ShowCreateTable(tableName string) string {
 	var str string
-	mm.Ex.RawSql("show create table "+tableName).Value("Create Table", &str)
+	mm.Builder.RawSql("show create table "+tableName).Value("Create Table", &str)
 	return str
 }
 
@@ -142,7 +135,7 @@ func (mm *MigrateExecutor) getIndexesFromCode(typeOf reflect.Type, tableFromCode
 func (mm *MigrateExecutor) getDbName() (string, error) {
 	//获取数据库名称
 	var dbName string
-	err := mm.Ex.RawSql("Select Name as db_name From Master..SysDataBases Where DbId=(Select Dbid From Master..SysProcesses Where Spid = @@spid)").Value("db_name", &dbName)
+	err := mm.Builder.RawSql("Select Name as db_name From Master..SysDataBases Where DbId=(Select Dbid From Master..SysProcesses Where Spid = @@spid)").Value("db_name", &dbName)
 	if err != nil {
 		return "", err
 	}
@@ -153,7 +146,7 @@ func (mm *MigrateExecutor) getDbName() (string, error) {
 func (mm *MigrateExecutor) getTableFromDb(dbName string, tableName string) []Table {
 	sql := "SELECT Name as TABLE_NAME FROM SysObjects Where XType='U' and Name =" + "'" + tableName + "'"
 	var dataList []Table
-	mm.Ex.RawSql(sql).GetMany(&dataList)
+	mm.Builder.RawSql(sql).GetMany(&dataList)
 
 	return dataList
 }
@@ -177,7 +170,7 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 		"Left Join sys.extended_properties F On D.id=F.major_id and F.minor_id=0 " +
 		"Order By A.id,A.colorder"
 
-	mm.Ex.RawSql(sqlColumn).GetMany(&columnsFromDb)
+	mm.Builder.RawSql(sqlColumn).GetMany(&columnsFromDb)
 
 	return columnsFromDb
 }
@@ -203,7 +196,7 @@ func (mm *MigrateExecutor) getIndexesFromDb(tableName string) []Index {
 		"AND t.name = '" + tableName + "'"
 
 	var indexesFromDb []Index
-	mm.Ex.RawSql(sqlIndex).GetMany(&indexesFromDb)
+	mm.Builder.RawSql(sqlIndex).GetMany(&indexesFromDb)
 	return indexesFromDb
 }
 
@@ -220,7 +213,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
 					fmt.Println(sql)
 
-					_, err := mm.Ex.RawSql(sql).Exec()
+					_, err := mm.Builder.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -232,7 +225,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
-			_, err := mm.Ex.RawSql(sql).Exec()
+			_, err := mm.Builder.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -261,7 +254,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 				if !keyMatch || indexCode.NonUnique.Int64 != indexDb.NonUnique.Int64 {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
-					_, err := mm.Ex.RawSql(sql).Exec()
+					_, err := mm.Builder.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -273,7 +266,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getIndexStr(indexCode)
-			_, err := mm.Ex.RawSql(sql).Exec()
+			_, err := mm.Builder.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -298,23 +291,12 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 
 	sqlStr := "CREATE TABLE " + tableFromCode.TableName.String + " (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
 
-	_, err := mm.Ex.RawSql(sqlStr).Exec()
+	_, err := mm.Builder.RawSql(sqlStr).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		fmt.Println("创建表:" + tableFromCode.TableName.String)
 	}
-}
-
-func (mm *MigrateExecutor) getOpinionVal(key string, def string) string {
-	opinions := mm.OpinionList
-	for i := 0; i < len(opinions); i++ {
-		opinionItem := opinions[i]
-		if opinionItem.Key == key {
-			def = opinionItem.Val
-		}
-	}
-	return def
 }
 
 func getTagMap(fieldTag string) map[string]string {

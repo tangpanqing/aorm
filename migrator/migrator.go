@@ -15,36 +15,13 @@ import (
 type Migrator struct {
 	//数据库操作连接
 	LinkCommon model.LinkCommon
-
-	//驱动名字
-	driverName string
-
-	//表属性
-	opinionList []model.OpinionItem
-}
-
-func (mi *Migrator) Driver(driverName string) *Migrator {
-	mi.driverName = driverName
-	return mi
-}
-
-func (mi *Migrator) Opinion(key string, val string) *Migrator {
-	if key == "COMMENT" {
-		val = "'" + val + "'"
-	}
-
-	mi.opinionList = append(mi.opinionList, model.OpinionItem{Key: key, Val: val})
-
-	return mi
 }
 
 //ShowCreateTable 获取创建表的ddl
 func (mi *Migrator) ShowCreateTable(tableName string) string {
-	if mi.driverName == model.Mysql {
+	if mi.LinkCommon.DriverName() == model.Mysql {
 		me := migrate_mysql.MigrateExecutor{
-			DriverName:  mi.driverName,
-			OpinionList: mi.opinionList,
-			Ex: &builder.Builder{
+			Builder: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}
@@ -72,48 +49,40 @@ func (mi *Migrator) Migrate(tableName string, dest interface{}) {
 }
 
 func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type, valueOf reflect.Value) {
-	if mi.driverName == model.Mssql {
+	if mi.LinkCommon.DriverName() == model.Mssql {
 		me := migrate_mssql.MigrateExecutor{
-			DriverName:  mi.driverName,
-			OpinionList: mi.opinionList,
-			Ex: &builder.Builder{
+			Builder: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}
 		me.MigrateCommon(tableName, typeOf)
 	}
 
-	if mi.driverName == model.Mysql {
+	if mi.LinkCommon.DriverName() == model.Mysql {
 		me := migrate_mysql.MigrateExecutor{
-			DriverName:  mi.driverName,
-			OpinionList: mi.opinionList,
-			Ex: &builder.Builder{
+			Builder: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}
 		me.MigrateCommon(tableName, typeOf, valueOf)
 	}
 
-	if mi.driverName == model.Sqlite3 {
+	if mi.LinkCommon.DriverName() == model.Sqlite3 {
 		me := migrate_sqlite3.MigrateExecutor{
-			DriverName:  mi.driverName,
-			OpinionList: mi.opinionList,
-			Ex: &builder.Builder{
+			Builder: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}
 		me.MigrateCommon(tableName, typeOf)
 	}
 
-	if mi.driverName == model.Postgres {
+	if mi.LinkCommon.DriverName() == model.Postgres {
 		me := migrate_postgres.MigrateExecutor{
-			DriverName:  mi.driverName,
-			OpinionList: mi.opinionList,
-			Ex: &builder.Builder{
+			Builder: &builder.Builder{
 				LinkCommon: mi.LinkCommon,
 			},
 		}
-		me.MigrateCommon(tableName, typeOf)
+		me.MigrateCommon(tableName, typeOf, valueOf)
 	}
 }
 

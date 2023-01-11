@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/helper"
-	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/null"
 	"reflect"
 	"regexp"
@@ -41,20 +40,14 @@ type Index struct {
 
 //MigrateExecutor 定义结构
 type MigrateExecutor struct {
-	//驱动名字
-	DriverName string
-
-	//表属性
-	OpinionList []model.OpinionItem
-
 	//执行者
-	Ex *builder.Builder
+	Builder *builder.Builder
 }
 
 //ShowCreateTable 查看创建表的ddl
 func (mm *MigrateExecutor) ShowCreateTable(tableName string) string {
 	var str string
-	mm.Ex.RawSql("show create table "+tableName).Value("Create Table", &str)
+	mm.Builder.RawSql("show create table "+tableName).Value("Create Table", &str)
 	return str
 }
 
@@ -153,7 +146,7 @@ func (mm *MigrateExecutor) getDbName() (string, error) {
 func (mm *MigrateExecutor) getTableFromDb(dbName string, tableName string) []Table {
 	sql := "select * from sqlite_master where type='table' and tbl_name=" + "'" + tableName + "'"
 	var sqliteMasterList []SqliteMaster
-	mm.Ex.RawSql(sql).GetMany(&sqliteMasterList)
+	mm.Builder.RawSql(sql).GetMany(&sqliteMasterList)
 
 	var dataList []Table
 	for i := 0; i < len(sqliteMasterList); i++ {
@@ -170,7 +163,7 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 
 	var sqliteMaster SqliteMaster
 	sqlColumn1 := "select * from sqlite_master where type='table'  and  tbl_name = " + "'" + tableName + "'"
-	mm.Ex.RawSql(sqlColumn1).GetOne(&sqliteMaster)
+	mm.Builder.RawSql(sqlColumn1).GetOne(&sqliteMaster)
 
 	str := sqliteMaster.Sql.String
 	str = strings.ReplaceAll(str, "\n", "")
@@ -205,7 +198,7 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 func (mm *MigrateExecutor) getIndexesFromDb(tableName string) []Index {
 	sqlIndex := "select * from sqlite_master where type = 'index' and name not like '%sqlite_autoindex%' and tbl_name=" + "'" + tableName + "'"
 	var sqliteMasterList []SqliteMaster
-	mm.Ex.RawSql(sqlIndex).GetMany(&sqliteMasterList)
+	mm.Builder.RawSql(sqlIndex).GetMany(&sqliteMasterList)
 
 	var indexesFromDb []Index
 	for i := 0; i < len(sqliteMasterList); i++ {
@@ -229,7 +222,7 @@ func (mm *MigrateExecutor) getIndexesFromDb(tableName string) []Index {
 	//查询是否有主键索引
 	sql := "select * from sqlite_master where type='table' and tbl_name=" + "'" + tableName + "'"
 	var sqliteMaster SqliteMaster
-	mm.Ex.RawSql(sql).GetOne(&sqliteMaster)
+	mm.Builder.RawSql(sql).GetOne(&sqliteMaster)
 
 	compileRegex := regexp.MustCompile("PRIMARY\\sKEY\\s\\((.*?)\\)")
 	matchArr2 := compileRegex.FindAllStringSubmatch(sqliteMaster.Sql.String, -1)
@@ -258,7 +251,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 					columnCode.ColumnDefault.String != columnDb.ColumnDefault.String {
 
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
-					_, err := mm.Ex.RawSql(sql).Exec()
+					_, err := mm.Builder.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(sql)
 						fmt.Println(err)
@@ -271,7 +264,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
-			_, err := mm.Ex.RawSql(sql).Exec()
+			_, err := mm.Builder.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(sql)
 				fmt.Println(err)
@@ -291,7 +284,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 				isFind = 1
 				if indexCode.KeyName != indexDb.KeyName || indexCode.NonUnique != indexDb.NonUnique {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
-					_, err := mm.Ex.RawSql(sql).Exec()
+					_, err := mm.Builder.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -324,7 +317,7 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 
 	//创建表结构与主键索引
 	sql := "CREATE TABLE `" + tableFromCode.TableName.String + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
-	_, err := mm.Ex.RawSql(sql).Exec()
+	_, err := mm.Builder.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -347,23 +340,12 @@ func (mm *MigrateExecutor) createIndex(tableName string, index Index) {
 	}
 
 	sql := "CREATE " + keyType + " INDEX " + index.KeyName.String + " on " + tableName + " (" + index.ColumnName.String + ")"
-	_, err := mm.Ex.RawSql(sql).Exec()
+	_, err := mm.Builder.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		fmt.Println("增加索引:" + sql)
 	}
-}
-
-func (mm *MigrateExecutor) getOpinionVal(key string, def string) string {
-	opinions := mm.OpinionList
-	for i := 0; i < len(opinions); i++ {
-		opinionItem := opinions[i]
-		if opinionItem.Key == key {
-			def = opinionItem.Val
-		}
-	}
-	return def
 }
 
 func getTagMap(fieldTag string) map[string]string {

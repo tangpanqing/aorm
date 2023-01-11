@@ -168,7 +168,7 @@ func (b *Builder) handleLimit(paramList []any) (string, []any) {
 	}
 
 	str := ""
-	if b.driverName == model.Postgres {
+	if b.LinkCommon.DriverName() == model.Postgres {
 		paramList = append(paramList, b.limitItem.pageSize)
 		paramList = append(paramList, b.limitItem.offset)
 
@@ -178,7 +178,7 @@ func (b *Builder) handleLimit(paramList []any) (string, []any) {
 		paramList = append(paramList, b.limitItem.pageSize)
 
 		str = " Limit ?,? "
-		if b.driverName == model.Mssql {
+		if b.LinkCommon.DriverName() == model.Mssql {
 			str = " offset ? rows fetch next ? rows only "
 		}
 	}

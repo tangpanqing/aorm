@@ -34,7 +34,6 @@ const RawEq = "RawEq"
 // Builder 查询记录所需要的条件
 type Builder struct {
 	LinkCommon model.LinkCommon
-	driverName string
 
 	table      interface{}
 	tableAlias string
@@ -60,12 +59,6 @@ type Builder struct {
 // Debug 链式操作-是否开启调试,打印sql
 func (b *Builder) Debug(isDebug bool) *Builder {
 	b.isDebug = isDebug
-	return b
-}
-
-// Driver 驱动类型
-func (b *Builder) Driver(driverName string) *Builder {
-	b.driverName = driverName
 	return b
 }
 
@@ -99,7 +92,7 @@ func (b *Builder) Insert(dest interface{}) (int64, error) {
 		key, tagMap := getFieldNameByReflect(typeOf.Elem().Field(i))
 
 		//如果是Postgres数据库，寻找主键
-		if b.driverName == model.Postgres {
+		if b.LinkCommon.DriverName() == model.Postgres {
 			if _, ok := tagMap["primary"]; ok {
 				primaryKey = key
 			}
@@ -115,15 +108,15 @@ func (b *Builder) Insert(dest interface{}) (int64, error) {
 		}
 	}
 
-	sqlStr := "INSERT INTO " + b.getTableNameCommon(typeOf, valueOf) + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
+	sql := "INSERT INTO " + b.getTableNameCommon(typeOf, valueOf) + " (" + strings.Join(keys, ",") + ") VALUES (" + strings.Join(place, ",") + ")"
 
-	if b.driverName == model.Mssql {
-		return b.insertForMssqlOrPostgres(sqlStr+"; SELECT SCOPE_IDENTITY()", args...)
-	} else if b.driverName == model.Postgres {
-		sqlStr = convertToPostgresSql(sqlStr)
-		return b.insertForMssqlOrPostgres(sqlStr+" RETURNING "+primaryKey, args...)
+	if b.LinkCommon.DriverName() == model.Mssql {
+		return b.insertForMssqlOrPostgres(sql+"; SELECT SCOPE_IDENTITY()", args...)
+	} else if b.LinkCommon.DriverName() == model.Postgres {
+		sql = convertToPostgresSql(sql)
+		return b.insertForMssqlOrPostgres(sql+" RETURNING "+primaryKey, args...)
 	} else {
-		return b.insertForCommon(sqlStr, args...)
+		return b.insertForCommon(sql, args...)
 	}
 }
 
@@ -196,7 +189,7 @@ func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 
 	sqlStr := "INSERT INTO " + b.getTableNameCommon(typeOf, valueOf.Index(0)) + " (" + strings.Join(keys, ",") + ") VALUES " + strings.Join(place, ",")
 
-	if b.driverName == model.Postgres {
+	if b.LinkCommon.DriverName() == model.Postgres {
 		sqlStr = convertToPostgresSql(sqlStr)
 	}
 
@@ -353,7 +346,7 @@ func (b *Builder) LockForUpdate(isLockForUpdate bool) *Builder {
 // Truncate 清空记录
 func (b *Builder) Truncate() (int64, error) {
 	sqlStr := ""
-	if b.driverName == model.Sqlite3 {
+	if b.LinkCommon.DriverName() == model.Sqlite3 {
 		sqlStr = "DELETE FROM " + getTableNameByTable(b.table)
 	} else {
 		sqlStr = "TRUNCATE TABLE " + getTableNameByTable(b.table)
@@ -373,7 +366,7 @@ func (b *Builder) RawSql(sql string, args ...interface{}) *Builder {
 func (b *Builder) GetRows() (*sql.Rows, error) {
 	sql, args := b.GetSqlAndParams()
 
-	if b.driverName == model.Postgres {
+	if b.LinkCommon.DriverName() == model.Postgres {
 		sql = convertToPostgresSql(sql)
 	}
 
@@ -398,7 +391,7 @@ func (b *Builder) GetRows() (*sql.Rows, error) {
 
 // Exec 通用执行-新增,更新,删除
 func (b *Builder) Exec() (sql.Result, error) {
-	if b.driverName == model.Postgres {
+	if b.LinkCommon.DriverName() == model.Postgres {
 		b.sql = convertToPostgresSql(b.sql)
 	}
 
@@ -432,7 +425,7 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 		}
 
 		//如果是mssql或者Postgres,并且来自having的话，需要特殊处理
-		if (b.driverName == model.Mssql || b.driverName == model.Postgres) && isFromHaving {
+		if (b.LinkCommon.DriverName() == model.Mssql || b.LinkCommon.DriverName() == model.Postgres) && isFromHaving {
 			fieldNameCurrent := getFieldName(where[i].Field)
 			for m := 0; m < len(b.selectList); m++ {
 				if fieldNameCurrent == getFieldName(b.selectList[m].FieldNew) {
@@ -453,7 +446,7 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 			}
 		} else {
 			if where[i].Opt == Eq || where[i].Opt == Ne || where[i].Opt == Gt || where[i].Opt == Ge || where[i].Opt == Lt || where[i].Opt == Le {
-				if b.driverName == model.Sqlite3 {
+				if b.LinkCommon.DriverName() == model.Sqlite3 {
 					whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"?")
 				} else {
 					switch where[i].Val.(type) {
@@ -516,9 +509,9 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 }
 
 func (b *Builder) getConcatForFloat(vars ...string) string {
-	if b.driverName == model.Sqlite3 {
+	if b.LinkCommon.DriverName() == model.Sqlite3 {
 		return strings.Join(vars, "||")
-	} else if b.driverName == model.Postgres {
+	} else if b.LinkCommon.DriverName() == model.Postgres {
 		return vars[0]
 	} else {
 		return "CONCAT(" + strings.Join(vars, ",") + ")"
@@ -526,7 +519,7 @@ func (b *Builder) getConcatForFloat(vars ...string) string {
 }
 
 func (b *Builder) getConcatForLike(vars ...string) string {
-	if b.driverName == model.Sqlite3 || b.driverName == model.Postgres {
+	if b.LinkCommon.DriverName() == model.Sqlite3 || b.LinkCommon.DriverName() == model.Postgres {
 		return strings.Join(vars, "||")
 	} else {
 		return "CONCAT(" + strings.Join(vars, ",") + ")"
@@ -564,7 +557,7 @@ func (b *Builder) GetSqlAndParams() (string, []interface{}) {
 
 // execAffected 通用执行-更新,删除
 func (b *Builder) execAffected(sql string, args ...interface{}) (int64, error) {
-	if b.driverName == model.Postgres {
+	if b.LinkCommon.DriverName() == model.Postgres {
 		sql = convertToPostgresSql(sql)
 	}
 
