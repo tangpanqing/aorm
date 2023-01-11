@@ -232,7 +232,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 					columnCode.Extra.String != columnDb.Extra.String ||
 					columnCode.ColumnDefault.String != columnDb.ColumnDefault.String {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -244,7 +244,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
-			_, err := mm.Ex.Exec(sql)
+			_, err := mm.Ex.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -263,7 +263,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 				isFind = 1
 				if indexCode.KeyName != indexDb.KeyName || indexCode.NonUnique != indexDb.NonUnique {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -275,7 +275,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getIndexStr(indexCode)
-			_, err := mm.Ex.Exec(sql)
+			_, err := mm.Ex.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -287,7 +287,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 func (mm *MigrateExecutor) modifyTableEngine(tableFromCode Table) {
 	sql := "ALTER TABLE " + tableFromCode.TableName.String + " Engine " + tableFromCode.Engine.String
-	_, err := mm.Ex.Exec(sql)
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -297,7 +297,7 @@ func (mm *MigrateExecutor) modifyTableEngine(tableFromCode Table) {
 
 func (mm *MigrateExecutor) modifyTableComment(tableFromCode Table) {
 	sql := "ALTER TABLE " + tableFromCode.TableName.String + " Comment " + tableFromCode.TableComment.String
-	_, err := mm.Ex.Exec(sql)
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -318,8 +318,8 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 		fieldArr = append(fieldArr, getIndexStr(index))
 	}
 
-	sqlStr := "CREATE TABLE `" + tableFromCode.TableName.String + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + " ENGINE " + tableFromCode.Engine.String + " COMMENT  " + tableFromCode.TableComment.String + ";"
-	_, err := mm.Ex.Exec(sqlStr)
+	sql := "CREATE TABLE `" + tableFromCode.TableName.String + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + " ENGINE " + tableFromCode.Engine.String + " COMMENT  " + tableFromCode.TableComment.String + ";"
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {

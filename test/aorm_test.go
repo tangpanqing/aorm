@@ -156,7 +156,7 @@ func TestAll(t *testing.T) {
 
 		testDistinct(dbItem.DriverName, dbItem.DbLink)
 
-		testExec(dbItem.DriverName, dbItem.DbLink)
+		testRawSql(dbItem.DriverName, dbItem.DbLink, id2)
 
 		testTransaction(dbItem.DriverName, dbItem.DbLink)
 		testTruncate(dbItem.DriverName, dbItem.DbLink)
@@ -556,6 +556,7 @@ func testLock(driver string, db *sql.DB, id int64) {
 	if driver == model.Sqlite3 || driver == model.Mssql {
 		return
 	}
+
 	var itemByLock Person
 	err := aorm.Db(db).
 		Debug(false).
@@ -680,10 +681,16 @@ func testDistinct(driver string, db *sql.DB) {
 	}
 }
 
-func testExec(driver string, db *sql.DB) {
-	_, err := aorm.Db(db).Debug(false).Driver(driver).Exec("UPDATE person SET name = ? WHERE person.id=?", "Bob", 3)
+func testRawSql(driver string, db *sql.DB, id2 int64) {
+	var list []Person
+	err1 := aorm.Db(db).Debug(false).Driver(driver).RawSql("SELECT * FROM person WHERE id=? AND type=?", id2, 0).GetMany(&list)
+	if err1 != nil {
+		panic(err1)
+	}
+
+	_, err := aorm.Db(db).Debug(false).Driver(driver).RawSql("UPDATE person SET name = ? WHERE id=?", "Bob2", id2).Exec()
 	if err != nil {
-		panic(driver + "testExec" + "found err")
+		panic(driver + "testRawSql" + "found err")
 	}
 }
 

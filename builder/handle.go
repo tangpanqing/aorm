@@ -57,8 +57,8 @@ func (b *Builder) handleSelect(paramList []any) (string, []any) {
 
 	//处理子语句
 	for i := 0; i < len(b.selectExpList); i++ {
-		executor := *(b.selectExpList[i].Builder)
-		subSql, subParamList := executor.GetSqlAndParams()
+		subBuilder := *(b.selectExpList[i].Builder)
+		subSql, subParamList := subBuilder.GetSqlAndParams()
 		strList = append(strList, "("+subSql+") AS "+getFieldName(b.selectExpList[i].FieldName))
 		paramList = append(paramList, subParamList...)
 	}
@@ -82,8 +82,8 @@ func (b *Builder) handleWhere(paramList []any) (string, []any) {
 func (b *Builder) handleSet(typeOf reflect.Type, valueOf reflect.Value, paramList []any) (string, []any) {
 
 	//如果没有设置表名
-	if b.tableName == "" {
-		b.tableName = getTableNameByReflect(typeOf, valueOf)
+	if b.table == nil {
+		b.table = getTableNameByReflect(typeOf, valueOf)
 	}
 
 	var keys []string
@@ -163,19 +163,19 @@ func (b *Builder) handleOrder(paramList []any) (string, []any) {
 
 //拼接SQL,分页相关  Postgres数据库分页数量在前偏移在后，其他数据库偏移量在前分页数量在后，另外Mssql数据库的关键词是offset...next
 func (b *Builder) handleLimit(paramList []any) (string, []any) {
-	if 0 == b.pageSize {
+	if 0 == b.limitItem.pageSize {
 		return "", paramList
 	}
 
 	str := ""
 	if b.driverName == model.Postgres {
-		paramList = append(paramList, b.pageSize)
-		paramList = append(paramList, b.offset)
+		paramList = append(paramList, b.limitItem.pageSize)
+		paramList = append(paramList, b.limitItem.offset)
 
 		str = " Limit ? offset ? "
 	} else {
-		paramList = append(paramList, b.offset)
-		paramList = append(paramList, b.pageSize)
+		paramList = append(paramList, b.limitItem.offset)
+		paramList = append(paramList, b.limitItem.pageSize)
 
 		str = " Limit ?,? "
 		if b.driverName == model.Mssql {

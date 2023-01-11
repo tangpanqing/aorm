@@ -252,7 +252,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " alter COLUMN " + getColumnStr(columnCode, "type")
 					//fmt.Println(sql)
 
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -264,7 +264,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode, "")
-			_, err := mm.Ex.Exec(sql)
+			_, err := mm.Ex.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -283,7 +283,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 				isFind = 1
 				if indexCode.KeyName != indexDb.KeyName || indexCode.NonUnique != indexDb.NonUnique {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -301,7 +301,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 func (mm *MigrateExecutor) modifyTableComment(tableFromCode Table) {
 	sql := "ALTER TABLE " + tableFromCode.TableName.String + " Comment " + tableFromCode.TableComment.String
-	_, err := mm.Ex.Exec(sql)
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -324,10 +324,9 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 		}
 	}
 
-	sqlStr := "CREATE TABLE " + tableFromCode.TableName.String + " (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
-	fmt.Println(sqlStr)
+	sql := "CREATE TABLE " + tableFromCode.TableName.String + " (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
 
-	_, err := mm.Ex.Exec(sqlStr)
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -350,7 +349,7 @@ func (mm *MigrateExecutor) createIndex(tableName string, index Index) {
 	}
 
 	sql := "CREATE " + keyType + " INDEX " + index.KeyName.String + " on " + tableName + " (" + index.ColumnName.String + ")"
-	_, err := mm.Ex.Exec(sql)
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {

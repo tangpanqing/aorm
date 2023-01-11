@@ -258,7 +258,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 					columnCode.ColumnDefault.String != columnDb.ColumnDefault.String {
 
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(sql)
 						fmt.Println(err)
@@ -271,7 +271,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
-			_, err := mm.Ex.Exec(sql)
+			_, err := mm.Ex.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(sql)
 				fmt.Println(err)
@@ -291,7 +291,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 				isFind = 1
 				if indexCode.KeyName != indexDb.KeyName || indexCode.NonUnique != indexDb.NonUnique {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -323,8 +323,8 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 	}
 
 	//创建表结构与主键索引
-	sqlStr := "CREATE TABLE `" + tableFromCode.TableName.String + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
-	_, err := mm.Ex.Exec(sqlStr)
+	sql := "CREATE TABLE `" + tableFromCode.TableName.String + "` (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -347,7 +347,7 @@ func (mm *MigrateExecutor) createIndex(tableName string, index Index) {
 	}
 
 	sql := "CREATE " + keyType + " INDEX " + index.KeyName.String + " on " + tableName + " (" + index.ColumnName.String + ")"
-	_, err := mm.Ex.Exec(sql)
+	_, err := mm.Ex.RawSql(sql).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {

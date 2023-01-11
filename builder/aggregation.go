@@ -11,7 +11,7 @@ type FloatStruct struct {
 }
 
 // Count 聚合函数-数量
-func (b *Builder) Count(fieldName string) (int64, error) {
+func (b *Builder) Count(fieldName interface{}) (int64, error) {
 	var obj []IntStruct
 	err := b.SelectCount(fieldName, "c", "").GetMany(&obj)
 	if err != nil {

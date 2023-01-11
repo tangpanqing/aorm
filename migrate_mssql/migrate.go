@@ -220,7 +220,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
 					fmt.Println(sql)
 
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -232,7 +232,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
-			_, err := mm.Ex.Exec(sql)
+			_, err := mm.Ex.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -261,7 +261,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 				if !keyMatch || indexCode.NonUnique.Int64 != indexDb.NonUnique.Int64 {
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
-					_, err := mm.Ex.Exec(sql)
+					_, err := mm.Ex.RawSql(sql).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -273,7 +273,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 
 		if isFind == 0 {
 			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getIndexStr(indexCode)
-			_, err := mm.Ex.Exec(sql)
+			_, err := mm.Ex.RawSql(sql).Exec()
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -297,9 +297,8 @@ func (mm *MigrateExecutor) createTable(tableFromCode Table, columnsFromCode []Co
 	}
 
 	sqlStr := "CREATE TABLE " + tableFromCode.TableName.String + " (\n" + strings.Join(fieldArr, ",\n") + "\n) " + ";"
-	fmt.Println(sqlStr)
 
-	_, err := mm.Ex.Exec(sqlStr)
+	_, err := mm.Ex.RawSql(sqlStr).Exec()
 	if err != nil {
 		fmt.Println(err)
 	} else {

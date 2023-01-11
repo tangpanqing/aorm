@@ -37,6 +37,11 @@ type OrderItem struct {
 	OrderType string
 }
 
+type LimitItem struct {
+	offset   int
+	pageSize int
+}
+
 type JoinItem struct {
 	joinType   string
 	table      interface{}

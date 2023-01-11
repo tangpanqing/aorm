@@ -11,8 +11,8 @@ func (b *Builder) Having(dest interface{}) *Builder {
 	valueOf := reflect.ValueOf(dest)
 
 	//如果没有设置表名
-	if b.tableName == "" {
-		b.tableName = getTableNameByReflect(typeOf, valueOf)
+	if b.table == nil {
+		b.table = getTableNameByReflect(typeOf, valueOf)
 	}
 
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
