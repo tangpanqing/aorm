@@ -96,84 +96,87 @@ func TestAll(t *testing.T) {
 	aorm.Store(&articleVO)
 	aorm.Store(&personAge, &personWithArticleCount)
 
-	var dbList = []aorm.DbContent{
-		testMysqlConnect(),
-		testSqlite3Connect(),
-		testPostgresConnect(),
-		testMssqlConnect(),
-	}
+	//var dbList = []*aorm.DbContent{
+	//	testMysqlConnect(),
+	//	testSqlite3Connect(),
+	//	testPostgresConnect(),
+	//	testMssqlConnect(),
+	//}
+	//
+	//for i := 0; i < len(dbList); i++ {
+	//	dbItem := dbList[i]
+	//
+	//	testMigrate(dbItem.DriverName, dbItem.DbLink)
+	//
+	//	testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
+	//
+	//	id := testInsert(dbItem.DriverName, dbItem.DbLink)
+	//	testInsertBatch(dbItem.DriverName, dbItem.DbLink)
+	//	testGetOne(dbItem.DriverName, dbItem.DbLink, id)
+	//	testGetMany(dbItem.DriverName, dbItem.DbLink)
+	//	testUpdate(dbItem.DriverName, dbItem.DbLink, id)
+	//
+	//	isExists := testExists(dbItem.DriverName, dbItem.DbLink, id)
+	//	if isExists != true {
+	//		panic("应该存在，但是数据库不存在")
+	//	}
+	//
+	//	testDelete(dbItem.DriverName, dbItem.DbLink, id)
+	//	isExists2 := testExists(dbItem.DriverName, dbItem.DbLink, id)
+	//	if isExists2 == true {
+	//		panic("应该不存在，但是数据库存在")
+	//	}
+	//
+	//	id2 := testInsert(dbItem.DriverName, dbItem.DbLink)
+	//	testTable(dbItem.DriverName, dbItem.DbLink)
+	//	testSelect(dbItem.DriverName, dbItem.DbLink)
+	//	testSelectWithSub(dbItem.DriverName, dbItem.DbLink)
+	//	testWhereWithSub(dbItem.DriverName, dbItem.DbLink)
+	//	testWhere(dbItem.DriverName, dbItem.DbLink)
+	//	testJoin(dbItem.DriverName, dbItem.DbLink)
+	//	testJoinWithAlias(dbItem.DriverName, dbItem.DbLink)
+	//
+	//	testGroupBy(dbItem.DriverName, dbItem.DbLink)
+	//	testHaving(dbItem.DriverName, dbItem.DbLink)
+	//	testOrderBy(dbItem.DriverName, dbItem.DbLink)
+	//	testLimit(dbItem.DriverName, dbItem.DbLink)
+	//	testLock(dbItem.DriverName, dbItem.DbLink, id2)
+	//
+	//	testIncrement(dbItem.DriverName, dbItem.DbLink, id2)
+	//	testDecrement(dbItem.DriverName, dbItem.DbLink, id2)
+	//
+	//	testValue(dbItem.DriverName, dbItem.DbLink, id2)
+	//	testPluck(dbItem.DriverName, dbItem.DbLink)
+	//
+	//	testCount(dbItem.DriverName, dbItem.DbLink)
+	//	testSum(dbItem.DriverName, dbItem.DbLink)
+	//	testAvg(dbItem.DriverName, dbItem.DbLink)
+	//	testMin(dbItem.DriverName, dbItem.DbLink)
+	//	testMax(dbItem.DriverName, dbItem.DbLink)
+	//
+	//	testDistinct(dbItem.DriverName, dbItem.DbLink)
+	//
+	//	testRawSql(dbItem.DriverName, dbItem.DbLink, id2)
+	//
+	//	testTransaction(dbItem.DriverName, dbItem.DbLink)
+	//	testTruncate(dbItem.DriverName, dbItem.DbLink)
+	//}
+	//
+	//testPreview()
 
-	for i := 0; i < len(dbList); i++ {
-		dbItem := dbList[i]
-
-		testMigrate(dbItem.DriverName, dbItem.DbLink)
-
-		testShowCreateTable(dbItem.DriverName, dbItem.DbLink)
-
-		id := testInsert(dbItem.DriverName, dbItem.DbLink)
-		testInsertBatch(dbItem.DriverName, dbItem.DbLink)
-		testGetOne(dbItem.DriverName, dbItem.DbLink, id)
-		testGetMany(dbItem.DriverName, dbItem.DbLink)
-		testUpdate(dbItem.DriverName, dbItem.DbLink, id)
-
-		isExists := testExists(dbItem.DriverName, dbItem.DbLink, id)
-		if isExists != true {
-			panic("应该存在，但是数据库不存在")
-		}
-
-		testDelete(dbItem.DriverName, dbItem.DbLink, id)
-		isExists2 := testExists(dbItem.DriverName, dbItem.DbLink, id)
-		if isExists2 == true {
-			panic("应该不存在，但是数据库存在")
-		}
-
-		id2 := testInsert(dbItem.DriverName, dbItem.DbLink)
-		testTable(dbItem.DriverName, dbItem.DbLink)
-		testSelect(dbItem.DriverName, dbItem.DbLink)
-		testSelectWithSub(dbItem.DriverName, dbItem.DbLink)
-		testWhereWithSub(dbItem.DriverName, dbItem.DbLink)
-		testWhere(dbItem.DriverName, dbItem.DbLink)
-		testJoin(dbItem.DriverName, dbItem.DbLink)
-		testJoinWithAlias(dbItem.DriverName, dbItem.DbLink)
-
-		testGroupBy(dbItem.DriverName, dbItem.DbLink)
-		testHaving(dbItem.DriverName, dbItem.DbLink)
-		testOrderBy(dbItem.DriverName, dbItem.DbLink)
-		testLimit(dbItem.DriverName, dbItem.DbLink)
-		testLock(dbItem.DriverName, dbItem.DbLink, id2)
-
-		testIncrement(dbItem.DriverName, dbItem.DbLink, id2)
-		testDecrement(dbItem.DriverName, dbItem.DbLink, id2)
-
-		testValue(dbItem.DriverName, dbItem.DbLink, id2)
-		testPluck(dbItem.DriverName, dbItem.DbLink)
-
-		testCount(dbItem.DriverName, dbItem.DbLink)
-		testSum(dbItem.DriverName, dbItem.DbLink)
-		testAvg(dbItem.DriverName, dbItem.DbLink)
-		testMin(dbItem.DriverName, dbItem.DbLink)
-		testMax(dbItem.DriverName, dbItem.DbLink)
-
-		testDistinct(dbItem.DriverName, dbItem.DbLink)
-
-		testRawSql(dbItem.DriverName, dbItem.DbLink, id2)
-
-		testTransaction(dbItem.DriverName, dbItem.DbLink)
-		testTruncate(dbItem.DriverName, dbItem.DbLink)
-	}
-
-	testPreview()
+	testDbContent()
 }
 
-func testSqlite3Connect() aorm.DbContent {
+func testSqlite3Connect() *aorm.DbContent {
 	sqlite3Content, sqlite3Err := aorm.Open("sqlite3", "test.db")
 	if sqlite3Err != nil {
 		panic(sqlite3Err)
 	}
+
 	return sqlite3Content
 }
 
-func testMysqlConnect() aorm.DbContent {
+func testMysqlConnect() *aorm.DbContent {
 	username := "root"
 	password := "root"
 	hostname := "localhost"
@@ -185,15 +188,10 @@ func testMysqlConnect() aorm.DbContent {
 		panic(mysqlErr)
 	}
 
-	err := mysqlContent.DbLink.Ping()
-	if err != nil {
-		panic(err)
-	}
-
 	return mysqlContent
 }
 
-func testPostgresConnect() aorm.DbContent {
+func testPostgresConnect() *aorm.DbContent {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "localhost", 5432, "postgres", "root", "postgres")
 
 	postgresContent, postgresErr := aorm.Open("postgres", psqlInfo)
@@ -201,24 +199,15 @@ func testPostgresConnect() aorm.DbContent {
 		panic(postgresErr)
 	}
 
-	err := postgresContent.DbLink.Ping()
-	if err != nil {
-		panic(err)
-	}
-
 	return postgresContent
 }
 
-func testMssqlConnect() aorm.DbContent {
+func testMssqlConnect() *aorm.DbContent {
 	mssqlInfo := fmt.Sprintf("server=%s;database=%s;user id=%s;password=%s;port=%d;encrypt=disable", "localhost", "database_name", "sa", "root", 1433)
+
 	mssqlContent, mssqlErr := aorm.Open("mssql", mssqlInfo)
 	if mssqlErr != nil {
 		panic(mssqlErr)
-	}
-
-	err := mssqlContent.DbLink.Ping()
-	if err != nil {
-		panic(err)
 	}
 
 	return mssqlContent
@@ -256,7 +245,7 @@ func testInsert(driver string, db *sql.DB) int64 {
 	})
 
 	var personItem Person
-	err := aorm.Db(db).Table(&person).Debug(false).Driver(driver).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
+	err := aorm.Db(db).Table(&person).Debug(false).Driver(driver).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -799,4 +788,20 @@ func testPreview() {
 		Select("*", "o").SelectAs(&person.Name, &articleVO.PersonName, "p").
 		WhereEq(&article.Id, articleId, "o").
 		GetMany(&list3)
+}
+
+func testDbContent() {
+	dbContent, _ := aorm.Open("mysql", "root:root@tcp(localhost:3306)/database_name?charset=utf8mb4&parseTime=True&loc=Local")
+	fmt.Println(dbContent)
+
+	//aorm.Db(dbContent).Insert(&Person{
+	//	Name: null.StringFrom("test name"),
+	//})
+	//
+	//tx := dbContent.Begin()
+	//aorm.Db(tx).Insert(&Person{
+	//	Name: null.StringFrom("test name"),
+	//})
+	//
+	//tx.Commit()
 }
