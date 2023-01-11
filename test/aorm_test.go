@@ -161,6 +161,8 @@ func TestAll(t *testing.T) {
 		testTransaction(dbItem.DriverName, dbItem.DbLink)
 		testTruncate(dbItem.DriverName, dbItem.DbLink)
 	}
+
+	testPreview()
 }
 
 func testSqlite3Connect() aorm.DbContent {
@@ -742,4 +744,59 @@ func testTruncate(driver string, db *sql.DB) {
 	if err != nil {
 		panic(driver + " testTruncate " + "found err")
 	}
+}
+
+func testPreview() {
+
+	//Content Mysql
+	db, _ := sql.Open("mysql", "root:root@tcp(localhost:3306)/database_name?charset=utf8mb4&parseTime=True&loc=Local")
+
+	//Insert a Person
+	personId, _ := aorm.Db(db).Insert(&Person{
+		Name:       null.StringFrom("Alice"),
+		Sex:        null.BoolFrom(true),
+		Age:        null.IntFrom(18),
+		Type:       null.IntFrom(0),
+		CreateTime: null.TimeFrom(time.Now()),
+		Money:      null.FloatFrom(1),
+		Test:       null.FloatFrom(2),
+	})
+
+	//Insert a Article
+	articleId, _ := aorm.Db(db).Insert(&Article{
+		Type:        null.IntFrom(0),
+		PersonId:    null.IntFrom(personId),
+		ArticleBody: null.StringFrom("文章内容"),
+	})
+
+	//GetOne
+	var personItem Person
+	err := aorm.Db(db).Table(&person).Table(&person).WhereEq(&person.Id, personId).OrderBy(&person.Id, builder.Desc).GetOne(&personItem)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	//Join
+	var list2 []ArticleVO
+	aorm.
+		Db(db).
+		Table(&article).
+		LeftJoin(&person, []builder.JoinCondition{
+			builder.GenJoinCondition(&person.Id, builder.RawEq, &article.PersonId),
+		}).
+		SelectAll(&article).SelectAs(&person.Name, &articleVO.PersonName).
+		WhereEq(&article.Id, articleId).
+		GetMany(&list2)
+
+	//Join With Alias
+	var list3 []ArticleVO
+	aorm.
+		Db(db).
+		Table(&article, "o").
+		LeftJoin(&person, []builder.JoinCondition{
+			builder.GenJoinCondition(&person.Id, builder.RawEq, &article.PersonId, "o"),
+		}, "p").
+		Select("*", "o").SelectAs(&person.Name, &articleVO.PersonName, "p").
+		WhereEq(&article.Id, articleId, "o").
+		GetMany(&list3)
 }
