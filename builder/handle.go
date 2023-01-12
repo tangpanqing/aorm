@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"github.com/tangpanqing/aorm/model"
+	"github.com/tangpanqing/aorm/driver"
 	"reflect"
 	"strings"
 )
@@ -168,7 +168,7 @@ func (b *Builder) handleLimit(paramList []any) (string, []any) {
 	}
 
 	str := ""
-	if b.LinkCommon.DriverName() == model.Postgres {
+	if b.Link.DriverName() == driver.Postgres {
 		paramList = append(paramList, b.limitItem.pageSize)
 		paramList = append(paramList, b.limitItem.offset)
 
@@ -178,7 +178,7 @@ func (b *Builder) handleLimit(paramList []any) (string, []any) {
 		paramList = append(paramList, b.limitItem.pageSize)
 
 		str = " Limit ?,? "
-		if b.LinkCommon.DriverName() == model.Mssql {
+		if b.Link.DriverName() == driver.Mssql {
 			str = " offset ? rows fetch next ? rows only "
 		}
 	}

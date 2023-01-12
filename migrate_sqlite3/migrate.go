@@ -144,9 +144,9 @@ func (mm *MigrateExecutor) getDbName() (string, error) {
 }
 
 func (mm *MigrateExecutor) getTableFromDb(dbName string, tableName string) []Table {
-	sql := "select * from sqlite_master where type='table' and tbl_name=" + "'" + tableName + "'"
+	query := "select * from sqlite_master where type='table' and tbl_name=" + "'" + tableName + "'"
 	var sqliteMasterList []SqliteMaster
-	mm.Builder.RawSql(sql).GetMany(&sqliteMasterList)
+	mm.Builder.RawSql(query).GetMany(&sqliteMasterList)
 
 	var dataList []Table
 	for i := 0; i < len(sqliteMasterList); i++ {
@@ -250,26 +250,26 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 				if columnCode.DataType.String != columnDb.DataType.String ||
 					columnCode.ColumnDefault.String != columnDb.ColumnDefault.String {
 
-					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
-					_, err := mm.Builder.RawSql(sql).Exec()
+					query := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getColumnStr(columnCode)
+					_, err := mm.Builder.RawSql(query).Exec()
 					if err != nil {
-						fmt.Println(sql)
+						fmt.Println(query)
 						fmt.Println(err)
 					} else {
-						fmt.Println("修改属性:" + sql)
+						fmt.Println("修改属性:" + query)
 					}
 				}
 			}
 		}
 
 		if isFind == 0 {
-			sql := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
-			_, err := mm.Builder.RawSql(sql).Exec()
+			query := "ALTER TABLE " + tableFromCode.TableName.String + " ADD " + getColumnStr(columnCode)
+			_, err := mm.Builder.RawSql(query).Exec()
 			if err != nil {
-				fmt.Println(sql)
+				fmt.Println(query)
 				fmt.Println(err)
 			} else {
-				fmt.Println("增加属性:" + sql)
+				fmt.Println("增加属性:" + query)
 			}
 		}
 	}
@@ -283,12 +283,12 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 			if indexCode.ColumnName == indexDb.ColumnName {
 				isFind = 1
 				if indexCode.KeyName != indexDb.KeyName || indexCode.NonUnique != indexDb.NonUnique {
-					sql := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
-					_, err := mm.Builder.RawSql(sql).Exec()
+					query := "ALTER TABLE " + tableFromCode.TableName.String + " MODIFY " + getIndexStr(indexCode)
+					_, err := mm.Builder.RawSql(query).Exec()
 					if err != nil {
 						fmt.Println(err)
 					} else {
-						fmt.Println("修改索引:" + sql)
+						fmt.Println("修改索引:" + query)
 					}
 				}
 			}
@@ -422,7 +422,7 @@ func getIndexStr(index Index) string {
 func getDataType(fieldType string, fieldMap map[string]string) string {
 	var DataType string
 
-	dataTypeVal, dataTypeOk := fieldMap["type"]
+	dataTypeVal, dataTypeOk := fieldMap["driver"]
 	if dataTypeOk {
 		DataType = dataTypeVal
 	} else {

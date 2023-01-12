@@ -2,12 +2,16 @@ package builder
 
 import (
 	"github.com/tangpanqing/aorm/helper"
-	"github.com/tangpanqing/aorm/model"
 	"reflect"
 )
 
+type FieldInfo struct {
+	TablePointer uintptr
+	Name         string
+}
+
 var TableMap = make(map[uintptr]string)
-var FieldMap = make(map[uintptr]model.FieldInfo)
+var FieldMap = make(map[uintptr]FieldInfo)
 
 //Store 保存到缓存
 func Store(destList ...interface{}) {
@@ -23,7 +27,7 @@ func Store(destList ...interface{}) {
 		for j := 0; j < valueOf.Elem().NumField(); j++ {
 			fieldPointer := valueOf.Elem().Field(j).Addr().Pointer()
 			key, _ := getFieldNameByReflect(typeof.Elem().Field(j))
-			setFieldMap(fieldPointer, model.FieldInfo{
+			setFieldMap(fieldPointer, FieldInfo{
 				TablePointer: tablePointer,
 				Name:         key,
 			})
@@ -39,11 +43,11 @@ func getTableMap(tablePointer uintptr) string {
 	return TableMap[tablePointer]
 }
 
-func setFieldMap(fieldPointer uintptr, fieldInfo model.FieldInfo) {
+func setFieldMap(fieldPointer uintptr, fieldInfo FieldInfo) {
 	FieldMap[fieldPointer] = fieldInfo
 }
 
-func getFieldMap(fieldPointer uintptr) model.FieldInfo {
+func getFieldMap(fieldPointer uintptr) FieldInfo {
 	return FieldMap[fieldPointer]
 }
 

@@ -101,7 +101,7 @@ func (f *Float) UnmarshalJSON(data []byte) error {
 		if errors.As(err, &typeError) {
 			// special case: accept string input
 			if typeError.Value != "string" {
-				return fmt.Errorf("null: JSON input is invalid type (need float or string): %w", err)
+				return fmt.Errorf("null: JSON input is invalid driver (need float or string): %w", err)
 			}
 			var str string
 			if err := json.Unmarshal(data, &str); err != nil {
@@ -197,7 +197,7 @@ func (i *Int) UnmarshalJSON(data []byte) error {
 		if errors.As(err, &typeError) {
 			// special case: accept string input
 			if typeError.Value != "string" {
-				return fmt.Errorf("null: JSON input is invalid type (need int or string): %w", err)
+				return fmt.Errorf("null: JSON input is invalid driver (need int or string): %w", err)
 			}
 			var str string
 			if err := json.Unmarshal(data, &str); err != nil {

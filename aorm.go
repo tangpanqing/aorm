@@ -30,19 +30,19 @@ func Store(destList ...interface{}) {
 }
 
 // Db 开始一个数据库操作
-func Db(linkCommon model.LinkCommon) *builder.Builder {
+func Db(link model.AormLink) *builder.Builder {
 	b := &builder.Builder{}
 
-	b.LinkCommon = linkCommon
-	b.Debug(linkCommon.GetDebugMode())
+	b.Link = link
+	b.Debug(link.GetDebugMode())
 
 	return b
 }
 
 // Migrator 开始一个数据库迁移
-func Migrator(linkCommon model.LinkCommon) *migrator.Migrator {
+func Migrator(linkCommon model.AormLink) *migrator.Migrator {
 	mi := &migrator.Migrator{
-		LinkCommon: linkCommon,
+		Link: linkCommon,
 	}
 	return mi
 }

@@ -2,6 +2,7 @@ package migrator
 
 import (
 	"github.com/tangpanqing/aorm/builder"
+	"github.com/tangpanqing/aorm/driver"
 	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/migrate_mssql"
 	"github.com/tangpanqing/aorm/migrate_mysql"
@@ -14,15 +15,15 @@ import (
 
 type Migrator struct {
 	//数据库操作连接
-	LinkCommon model.LinkCommon
+	Link model.AormLink
 }
 
 //ShowCreateTable 获取创建表的ddl
 func (mi *Migrator) ShowCreateTable(tableName string) string {
-	if mi.LinkCommon.DriverName() == model.Mysql {
+	if mi.Link.DriverName() == driver.Mysql {
 		me := migrate_mysql.MigrateExecutor{
 			Builder: &builder.Builder{
-				LinkCommon: mi.LinkCommon,
+				Link: mi.Link,
 			},
 		}
 		return me.ShowCreateTable(tableName)
@@ -49,37 +50,37 @@ func (mi *Migrator) Migrate(tableName string, dest interface{}) {
 }
 
 func (mi *Migrator) migrateCommon(tableName string, typeOf reflect.Type, valueOf reflect.Value) {
-	if mi.LinkCommon.DriverName() == model.Mssql {
+	if mi.Link.DriverName() == driver.Mssql {
 		me := migrate_mssql.MigrateExecutor{
 			Builder: &builder.Builder{
-				LinkCommon: mi.LinkCommon,
+				Link: mi.Link,
 			},
 		}
 		me.MigrateCommon(tableName, typeOf)
 	}
 
-	if mi.LinkCommon.DriverName() == model.Mysql {
+	if mi.Link.DriverName() == driver.Mysql {
 		me := migrate_mysql.MigrateExecutor{
 			Builder: &builder.Builder{
-				LinkCommon: mi.LinkCommon,
+				Link: mi.Link,
 			},
 		}
 		me.MigrateCommon(tableName, typeOf, valueOf)
 	}
 
-	if mi.LinkCommon.DriverName() == model.Sqlite3 {
+	if mi.Link.DriverName() == driver.Sqlite3 {
 		me := migrate_sqlite3.MigrateExecutor{
 			Builder: &builder.Builder{
-				LinkCommon: mi.LinkCommon,
+				Link: mi.Link,
 			},
 		}
 		me.MigrateCommon(tableName, typeOf)
 	}
 
-	if mi.LinkCommon.DriverName() == model.Postgres {
+	if mi.Link.DriverName() == driver.Postgres {
 		me := migrate_postgres.MigrateExecutor{
 			Builder: &builder.Builder{
-				LinkCommon: mi.LinkCommon,
+				Link: mi.Link,
 			},
 		}
 		me.MigrateCommon(tableName, typeOf, valueOf)

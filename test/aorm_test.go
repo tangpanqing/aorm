@@ -8,6 +8,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tangpanqing/aorm"
 	"github.com/tangpanqing/aorm/builder"
+	"github.com/tangpanqing/aorm/driver"
 	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/null"
 	"testing"
@@ -28,9 +29,9 @@ func (s *Student) TableOpinion() map[string]string {
 
 type Article struct {
 	Id          null.Int    `aorm:"primary;auto_increment" json:"id"`
-	Type        null.Int    `aorm:"index;comment:类型" json:"type"`
+	Type        null.Int    `aorm:"index;comment:类型" json:"driver"`
 	PersonId    null.Int    `aorm:"comment:人员Id" json:"personId"`
-	ArticleBody null.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
+	ArticleBody null.String `aorm:"driver:text;comment:文章内容" json:"articleBody"`
 }
 
 func (a *Article) TableOpinion() map[string]string {
@@ -42,10 +43,10 @@ func (a *Article) TableOpinion() map[string]string {
 
 type ArticleVO struct {
 	Id          null.Int    `aorm:"primary;auto_increment" json:"id"`
-	Type        null.Int    `aorm:"index;comment:类型" json:"type"`
+	Type        null.Int    `aorm:"index;comment:类型" json:"driver"`
 	PersonId    null.Int    `aorm:"comment:人员Id" json:"personId"`
 	PersonName  null.String `aorm:"comment:人员名称" json:"personName"`
-	ArticleBody null.String `aorm:"type:text;comment:文章内容" json:"articleBody"`
+	ArticleBody null.String `aorm:"driver:text;comment:文章内容" json:"articleBody"`
 }
 
 type Person struct {
@@ -53,10 +54,10 @@ type Person struct {
 	Name       null.String `aorm:"size:100;not null;comment:名字" json:"name"`
 	Sex        null.Bool   `aorm:"index;comment:性别" json:"sex"`
 	Age        null.Int    `aorm:"index;comment:年龄" json:"age"`
-	Type       null.Int    `aorm:"index;comment:类型" json:"type"`
+	Type       null.Int    `aorm:"index;comment:类型" json:"driver"`
 	CreateTime null.Time   `aorm:"comment:创建时间" json:"createTime"`
 	Money      null.Float  `aorm:"comment:金额" json:"money"`
-	Test       null.Float  `aorm:"type:double;comment:测试" json:"test"`
+	Test       null.Float  `aorm:"driver:double;comment:测试" json:"test"`
 }
 
 func (p *Person) TableOpinion() map[string]string {
@@ -76,10 +77,10 @@ type PersonWithArticleCount struct {
 	Name         null.String `aorm:"size:100;not null;comment:名字" json:"name"`
 	Sex          null.Bool   `aorm:"index;comment:性别" json:"sex"`
 	Age          null.Int    `aorm:"index;comment:年龄" json:"age"`
-	Type         null.Int    `aorm:"index;comment:类型" json:"type"`
+	Type         null.Int    `aorm:"index;comment:类型" json:"driver"`
 	CreateTime   null.Time   `aorm:"comment:创建时间" json:"createTime"`
 	Money        null.Float  `aorm:"comment:金额" json:"money"`
-	Test         null.Float  `aorm:"type:double;comment:测试" json:"test"`
+	Test         null.Float  `aorm:"driver:double;comment:测试" json:"test"`
 	ArticleCount null.Int    `aorm:"comment:文章数量" json:"articleCount"`
 }
 
@@ -101,6 +102,7 @@ func TestAll(t *testing.T) {
 		testPostgresConnect(),
 		testMssqlConnect(),
 	}
+	defer closeAll(dbList)
 
 	for i := 0; i < len(dbList); i++ {
 		dbItem := dbList[i]
@@ -157,6 +159,7 @@ func TestAll(t *testing.T) {
 
 		testTransaction(dbItem)
 		testTruncate(dbItem)
+
 	}
 
 	testPreview()
@@ -164,7 +167,7 @@ func TestAll(t *testing.T) {
 }
 
 func testSqlite3Connect() *model.AormDB {
-	sqlite3Content, sqlite3Err := aorm.Open(model.Sqlite3, "test.db")
+	sqlite3Content, sqlite3Err := aorm.Open(driver.Sqlite3, "test.db")
 	if sqlite3Err != nil {
 		panic(sqlite3Err)
 	}
@@ -180,7 +183,7 @@ func testMysqlConnect() *model.AormDB {
 	port := "3306"
 	dbname := "database_name"
 
-	mysqlContent, mysqlErr := aorm.Open(model.Mysql, username+":"+password+"@tcp("+hostname+":"+port+")/"+dbname+"?charset=utf8mb4&parseTime=True&loc=Local")
+	mysqlContent, mysqlErr := aorm.Open(driver.Mysql, username+":"+password+"@tcp("+hostname+":"+port+")/"+dbname+"?charset=utf8mb4&parseTime=True&loc=Local")
 	if mysqlErr != nil {
 		panic(mysqlErr)
 	}
@@ -192,7 +195,7 @@ func testMysqlConnect() *model.AormDB {
 func testPostgresConnect() *model.AormDB {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "localhost", 5432, "postgres", "root", "postgres")
 
-	postgresContent, postgresErr := aorm.Open(model.Postgres, psqlInfo)
+	postgresContent, postgresErr := aorm.Open(driver.Postgres, psqlInfo)
 	if postgresErr != nil {
 		panic(postgresErr)
 	}
@@ -205,7 +208,7 @@ func testPostgresConnect() *model.AormDB {
 func testMssqlConnect() *model.AormDB {
 	mssqlInfo := fmt.Sprintf("server=%s;database=%s;user id=%s;password=%s;port=%d;encrypt=disable", "localhost", "database_name", "sa", "root", 1433)
 
-	mssqlContent, mssqlErr := aorm.Open(model.Mssql, mssqlInfo)
+	mssqlContent, mssqlErr := aorm.Open(driver.Mssql, mssqlInfo)
 	if mssqlErr != nil {
 		panic(mssqlErr)
 	}
@@ -540,7 +543,7 @@ func testLimit(db *model.AormDB) {
 }
 
 func testLock(db *model.AormDB, id int64) {
-	if db.DriverName() == model.Sqlite3 || db.DriverName() == model.Mssql {
+	if db.DriverName() == driver.Sqlite3 || db.DriverName() == driver.Mssql {
 		return
 	}
 
@@ -668,7 +671,7 @@ func testDistinct(db *model.AormDB) {
 
 func testRawSql(db *model.AormDB, id2 int64) {
 	var list []Person
-	err1 := aorm.Db(db).RawSql("SELECT * FROM person WHERE id=? AND type=?", id2, 0).GetMany(&list)
+	err1 := aorm.Db(db).RawSql("SELECT * FROM person WHERE id=?", id2).GetMany(&list)
 	if err1 != nil {
 		panic(err1)
 	}
@@ -732,7 +735,8 @@ func testTruncate(db *model.AormDB) {
 func testPreview() {
 
 	//Content Mysql
-	db, _ := aorm.Open("mysql", "root:root@tcp(localhost:3306)/database_name?charset=utf8mb4&parseTime=True&loc=Local")
+	db, _ := aorm.Open(driver.Mysql, "root:root@tcp(localhost:3306)/database_name?charset=utf8mb4&parseTime=True&loc=Local")
+	defer db.Close()
 
 	//Insert a Person
 	personId, _ := aorm.Db(db).Insert(&Person{
@@ -785,10 +789,13 @@ func testPreview() {
 }
 
 func testDbContent() {
-	db, err := aorm.Open("mysql", "root:root@tcp(localhost:3306)/database_name?charset=utf8mb4&parseTime=True&loc=Local")
+	db, err := aorm.Open(driver.Mysql, "root:root@tcp(localhost:3306)/database_name?charset=utf8mb4&parseTime=True&loc=Local")
 	if err != nil {
 		panic(err)
 	}
+	db.SetMaxOpenConns(5)
+	db.SetDebugMode(false)
+	defer db.Close()
 
 	aorm.Db(db).Insert(&Person{
 		Name: null.StringFrom("test name"),
@@ -800,4 +807,10 @@ func testDbContent() {
 	})
 
 	tx.Commit()
+}
+
+func closeAll(dbList []*model.AormDB) {
+	for i := 0; i < len(dbList); i++ {
+		dbList[i].Close()
+	}
 }

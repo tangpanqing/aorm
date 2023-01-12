@@ -255,8 +255,8 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 				if columnCode.DataType.String != columnDb.DataType.String {
 					fmt.Println(columnCode.ColumnName.String, columnCode.DataType.String, columnDb.DataType.String)
 
-					sql := "ALTER TABLE " + tableFromCode.TableName.String + " alter COLUMN " + getColumnStr(columnCode, "type")
-					//fmt.Println(sql)
+					sql := "ALTER TABLE " + tableFromCode.TableName.String + " alter COLUMN " + getColumnStr(columnCode, "driver")
+					//fmt.Println(model)
 
 					_, err := mm.Builder.RawSql(sql).Exec()
 					if err != nil {
@@ -441,7 +441,7 @@ func getIndexStr(index Index) string {
 func getDataType(fieldType string, fieldMap map[string]string) string {
 	var DataType string
 
-	dataTypeVal, dataTypeOk := fieldMap["type"]
+	dataTypeVal, dataTypeOk := fieldMap["driver"]
 	if dataTypeOk {
 		DataType = dataTypeVal
 		if "tinyint" == DataType {
