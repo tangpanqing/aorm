@@ -1,13 +1,13 @@
 package migrator
 
 import (
+	"github.com/tangpanqing/aorm/base"
 	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/driver"
 	"github.com/tangpanqing/aorm/migrate_mssql"
 	"github.com/tangpanqing/aorm/migrate_mysql"
 	"github.com/tangpanqing/aorm/migrate_postgres"
 	"github.com/tangpanqing/aorm/migrate_sqlite3"
-	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/utils"
 	"reflect"
 	"strings"
@@ -15,7 +15,7 @@ import (
 
 type Migrator struct {
 	//数据库操作连接
-	Link model.AormLink
+	Link base.Link
 }
 
 //ShowCreateTable 获取创建表的ddl

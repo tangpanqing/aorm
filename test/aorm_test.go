@@ -7,9 +7,9 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tangpanqing/aorm"
+	"github.com/tangpanqing/aorm/base"
 	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/driver"
-	"github.com/tangpanqing/aorm/model"
 	"github.com/tangpanqing/aorm/null"
 	"testing"
 	"time"
@@ -96,7 +96,7 @@ func TestAll(t *testing.T) {
 	aorm.Store(&articleVO)
 	aorm.Store(&personAge, &personWithArticleCount)
 
-	var dbList = []*model.AormDB{
+	var dbList = []*base.Db{
 		testMysqlConnect(),
 		testSqlite3Connect(),
 		testPostgresConnect(),
@@ -166,7 +166,7 @@ func TestAll(t *testing.T) {
 	testDbContent()
 }
 
-func testSqlite3Connect() *model.AormDB {
+func testSqlite3Connect() *base.Db {
 	sqlite3Content, sqlite3Err := aorm.Open(driver.Sqlite3, "test.db")
 	if sqlite3Err != nil {
 		panic(sqlite3Err)
@@ -176,7 +176,7 @@ func testSqlite3Connect() *model.AormDB {
 	return sqlite3Content
 }
 
-func testMysqlConnect() *model.AormDB {
+func testMysqlConnect() *base.Db {
 	username := "root"
 	password := "root"
 	hostname := "localhost"
@@ -192,7 +192,7 @@ func testMysqlConnect() *model.AormDB {
 	return mysqlContent
 }
 
-func testPostgresConnect() *model.AormDB {
+func testPostgresConnect() *base.Db {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "localhost", 5432, "postgres", "root", "postgres")
 
 	postgresContent, postgresErr := aorm.Open(driver.Postgres, psqlInfo)
@@ -205,7 +205,7 @@ func testPostgresConnect() *model.AormDB {
 	return postgresContent
 }
 
-func testMssqlConnect() *model.AormDB {
+func testMssqlConnect() *base.Db {
 	mssqlInfo := fmt.Sprintf("server=%s;database=%s;user id=%s;password=%s;port=%d;encrypt=disable", "localhost", "database_name", "sa", "root", 1433)
 
 	mssqlContent, mssqlErr := aorm.Open(driver.Mssql, mssqlInfo)
@@ -217,17 +217,17 @@ func testMssqlConnect() *model.AormDB {
 	return mssqlContent
 }
 
-func testMigrate(db *model.AormDB) {
+func testMigrate(db *base.Db) {
 	aorm.Migrator(db).AutoMigrate(&person, &article, &student)
 
 	aorm.Migrator(db).Migrate("person_1", &person)
 }
 
-func testShowCreateTable(db *model.AormDB) {
+func testShowCreateTable(db *base.Db) {
 	aorm.Migrator(db).ShowCreateTable("person")
 }
 
-func testInsert(db *model.AormDB) int64 {
+func testInsert(db *base.Db) int64 {
 	obj := Person{
 		Name:       null.StringFrom("Alice"),
 		Sex:        null.BoolFrom(true),
@@ -286,7 +286,7 @@ func testInsert(db *model.AormDB) int64 {
 	return id
 }
 
-func testInsertBatch(db *model.AormDB) int64 {
+func testInsertBatch(db *base.Db) int64 {
 	var batch []*Person
 	batch = append(batch, &Person{
 		Name:       null.StringFrom("Alice"),
@@ -316,7 +316,7 @@ func testInsertBatch(db *model.AormDB) int64 {
 	return count
 }
 
-func testGetOne(db *model.AormDB, id int64) {
+func testGetOne(db *base.Db, id int64) {
 	var personItem Person
 	errFind := aorm.Db(db).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).GetOne(&personItem)
 	if errFind != nil {
@@ -324,7 +324,7 @@ func testGetOne(db *model.AormDB, id int64) {
 	}
 }
 
-func testGetMany(db *model.AormDB) {
+func testGetMany(db *base.Db) {
 	var list []Person
 	errSelect := aorm.Db(db).Table(&person).WhereEq(&person.Type, 0).GetMany(&list)
 	if errSelect != nil {
@@ -332,14 +332,14 @@ func testGetMany(db *model.AormDB) {
 	}
 }
 
-func testUpdate(db *model.AormDB, id int64) {
+func testUpdate(db *base.Db, id int64) {
 	_, errUpdate := aorm.Db(db).WhereEq(&person.Id, id).Update(&Person{Name: null.StringFrom("Bob")})
 	if errUpdate != nil {
 		panic(db.DriverName() + "testUpdate" + "found err")
 	}
 }
 
-func testDelete(db *model.AormDB, id int64) {
+func testDelete(db *base.Db, id int64) {
 	_, errDelete := aorm.Db(db).Table(&person).WhereEq(&person.Id, id).Delete()
 	if errDelete != nil {
 		panic(db.DriverName() + "testDelete" + "found err")
@@ -353,7 +353,7 @@ func testDelete(db *model.AormDB, id int64) {
 	}
 }
 
-func testExists(db *model.AormDB, id int64) bool {
+func testExists(db *base.Db, id int64) bool {
 	exists, err := aorm.Db(db).Table(&person).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).Exists()
 	if err != nil {
 		panic(db.DriverName() + " testExists " + "found err:" + err.Error())
@@ -361,7 +361,7 @@ func testExists(db *model.AormDB, id int64) bool {
 	return exists
 }
 
-func testTable(db *model.AormDB) {
+func testTable(db *base.Db) {
 	_, err := aorm.Db(db).Table("person_1").Insert(&Person{Name: null.StringFrom("Cherry")})
 	if err != nil {
 		panic(db.DriverName() + " testTable " + "found err:" + err.Error())
@@ -373,7 +373,7 @@ func testTable(db *model.AormDB) {
 	}
 }
 
-func testSelect(db *model.AormDB) {
+func testSelect(db *base.Db) {
 	var listByFiled []Person
 	err := aorm.Db(db).Table(&person).Select(&person.Name).Select(&person.Age).WhereEq(&person.Age, 18).GetMany(&listByFiled)
 	if err != nil {
@@ -381,7 +381,7 @@ func testSelect(db *model.AormDB) {
 	}
 }
 
-func testSelectWithSub(db *model.AormDB) {
+func testSelectWithSub(db *base.Db) {
 	var listByFiled []PersonWithArticleCount
 
 	sub := aorm.Db(db).Table(&article).SelectCount(&article.Id, "article_count_tem").WhereRawEq(&article.PersonId, &person.Id)
@@ -397,7 +397,7 @@ func testSelectWithSub(db *model.AormDB) {
 	}
 }
 
-func testWhereWithSub(db *model.AormDB) {
+func testWhereWithSub(db *base.Db) {
 	var listByFiled []Person
 	sub := aorm.Db(db).Table(&article).SelectCount(&article.PersonId, "count_person_id").GroupBy(&article.PersonId).HavingGt("count_person_id", 0)
 	err := aorm.Db(db).
@@ -409,7 +409,7 @@ func testWhereWithSub(db *model.AormDB) {
 	}
 }
 
-func testWhere(db *model.AormDB) {
+func testWhere(db *base.Db) {
 	var listByWhere []Person
 	err := aorm.Db(db).Table(&person).WhereArr([]builder.WhereItem{
 		builder.GenWhereItem(&person.Type, builder.Eq, 0),
@@ -423,7 +423,7 @@ func testWhere(db *model.AormDB) {
 	}
 }
 
-func testJoin(db *model.AormDB) {
+func testJoin(db *base.Db) {
 	var list2 []ArticleVO
 	err := aorm.Db(db).
 		Table(&article).
@@ -443,7 +443,7 @@ func testJoin(db *model.AormDB) {
 	}
 }
 
-func testJoinWithAlias(db *model.AormDB) {
+func testJoinWithAlias(db *base.Db) {
 	var list2 []ArticleVO
 	err := aorm.Db(db).
 		Table(&article, "o").
@@ -464,7 +464,7 @@ func testJoinWithAlias(db *model.AormDB) {
 	}
 }
 
-func testGroupBy(db *model.AormDB) {
+func testGroupBy(db *base.Db) {
 	var personAgeItem PersonAge
 	err := aorm.Db(db).
 		Table(&person).
@@ -479,7 +479,7 @@ func testGroupBy(db *model.AormDB) {
 	}
 }
 
-func testHaving(db *model.AormDB) {
+func testHaving(db *base.Db) {
 	var listByHaving []PersonAge
 
 	err := aorm.Db(db).
@@ -496,7 +496,7 @@ func testHaving(db *model.AormDB) {
 	}
 }
 
-func testOrderBy(db *model.AormDB) {
+func testOrderBy(db *base.Db) {
 	var listByOrder []Person
 	err := aorm.Db(db).
 		Table(&person).
@@ -518,7 +518,7 @@ func testOrderBy(db *model.AormDB) {
 	}
 }
 
-func testLimit(db *model.AormDB) {
+func testLimit(db *base.Db) {
 	var list3 []Person
 	err1 := aorm.Db(db).
 		Table(&person).
@@ -542,7 +542,7 @@ func testLimit(db *model.AormDB) {
 	}
 }
 
-func testLock(db *model.AormDB, id int64) {
+func testLock(db *base.Db, id int64) {
 	if db.DriverName() == driver.Sqlite3 || db.DriverName() == driver.Mssql {
 		return
 	}
@@ -559,21 +559,21 @@ func testLock(db *model.AormDB, id int64) {
 	}
 }
 
-func testIncrement(db *model.AormDB, id int64) {
+func testIncrement(db *base.Db, id int64) {
 	_, err := aorm.Db(db).Table(&person).WhereEq(&person.Id, id).Increment(&person.Age, 1)
 	if err != nil {
 		panic(db.DriverName() + " testIncrement " + "found err:" + err.Error())
 	}
 }
 
-func testDecrement(db *model.AormDB, id int64) {
+func testDecrement(db *base.Db, id int64) {
 	_, err := aorm.Db(db).Table(&person).WhereEq(&person.Id, id).Decrement(&person.Age, 2)
 	if err != nil {
 		panic(db.DriverName() + "testDecrement" + "found err")
 	}
 }
 
-func testValue(db *model.AormDB, id int64) {
+func testValue(db *base.Db, id int64) {
 
 	var name string
 	errName := aorm.Db(db).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Id, id).Value(&person.Name, &name)
@@ -600,7 +600,7 @@ func testValue(db *model.AormDB, id int64) {
 	}
 }
 
-func testPluck(db *model.AormDB) {
+func testPluck(db *base.Db) {
 	var nameList []string
 	errNameList := aorm.Db(db).Table(&person).OrderBy(&person.Id, builder.Desc).WhereEq(&person.Type, 0).Limit(0, 3).Pluck(&person.Name, &nameList)
 	if errNameList != nil {
@@ -626,42 +626,42 @@ func testPluck(db *model.AormDB) {
 	}
 }
 
-func testCount(db *model.AormDB) {
+func testCount(db *base.Db) {
 	_, err := aorm.Db(db).Table(&person).WhereEq(&person.Age, 18).Count("*")
 	if err != nil {
 		panic(db.DriverName() + "testCount" + "found err")
 	}
 }
 
-func testSum(db *model.AormDB) {
+func testSum(db *base.Db) {
 	_, err := aorm.Db(db).Table(&person).WhereEq(&person.Age, 18).Sum(&person.Age)
 	if err != nil {
 		panic(db.DriverName() + "testSum" + "found err")
 	}
 }
 
-func testAvg(db *model.AormDB) {
+func testAvg(db *base.Db) {
 	_, err := aorm.Db(db).Table(&person).WhereEq(&person.Age, 18).Avg(&person.Age)
 	if err != nil {
 		panic(db.DriverName() + "testAvg" + "found err")
 	}
 }
 
-func testMin(db *model.AormDB) {
+func testMin(db *base.Db) {
 	_, err := aorm.Db(db).Table(&person).WhereEq(&person.Age, 18).Min(&person.Age)
 	if err != nil {
 		panic(db.DriverName() + "testMin" + "found err")
 	}
 }
 
-func testMax(db *model.AormDB) {
+func testMax(db *base.Db) {
 	_, err := aorm.Db(db).Table(&person).WhereEq(&person.Age, 18).Max(&person.Age)
 	if err != nil {
 		panic(db.DriverName() + "testMax" + "found err")
 	}
 }
 
-func testDistinct(db *model.AormDB) {
+func testDistinct(db *base.Db) {
 	var listByFiled []Person
 	err := aorm.Db(db).Distinct(true).Table(&person).Select(&person.Name).Select(&person.Age).WhereEq(&person.Age, 18).GetMany(&listByFiled)
 	if err != nil {
@@ -669,7 +669,7 @@ func testDistinct(db *model.AormDB) {
 	}
 }
 
-func testRawSql(db *model.AormDB, id2 int64) {
+func testRawSql(db *base.Db, id2 int64) {
 	var list []Person
 	err1 := aorm.Db(db).RawSql("SELECT * FROM person WHERE id=?", id2).GetMany(&list)
 	if err1 != nil {
@@ -682,7 +682,7 @@ func testRawSql(db *model.AormDB, id2 int64) {
 	}
 }
 
-func testTransaction(db *model.AormDB) {
+func testTransaction(db *base.Db) {
 	tx := db.Begin()
 
 	id, errInsert := aorm.Db(tx).Insert(&Person{
@@ -725,7 +725,7 @@ func testTransaction(db *model.AormDB) {
 	tx.Commit()
 }
 
-func testTruncate(db *model.AormDB) {
+func testTruncate(db *base.Db) {
 	_, err := aorm.Db(db).Table(&person).Truncate()
 	if err != nil {
 		panic(db.DriverName() + " testTruncate " + "found err")
@@ -809,7 +809,7 @@ func testDbContent() {
 	tx.Commit()
 }
 
-func closeAll(dbList []*model.AormDB) {
+func closeAll(dbList []*base.Db) {
 	for i := 0; i < len(dbList); i++ {
 		dbList[i].Close()
 	}

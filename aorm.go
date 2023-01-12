@@ -2,24 +2,24 @@ package aorm
 
 import (
 	"database/sql" //只需导入你需要的驱动即可
+	"github.com/tangpanqing/aorm/base"
 	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/migrator"
-	"github.com/tangpanqing/aorm/model"
 )
 
 //Open 开始一个数据库连接
-func Open(driverName string, dataSourceName string) (*model.AormDB, error) {
+func Open(driverName string, dataSourceName string) (*base.Db, error) {
 	sqlDB, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
-		return &model.AormDB{}, err
+		return &base.Db{}, err
 	}
 
 	err2 := sqlDB.Ping()
 	if err2 != nil {
-		return &model.AormDB{}, err2
+		return &base.Db{}, err2
 	}
 
-	return &model.AormDB{
+	return &base.Db{
 		Driver: driverName,
 		SqlDB:  sqlDB,
 	}, nil
@@ -30,7 +30,7 @@ func Store(destList ...interface{}) {
 }
 
 // Db 开始一个数据库操作
-func Db(link model.AormLink) *builder.Builder {
+func Db(link base.Link) *builder.Builder {
 	b := &builder.Builder{}
 
 	b.Link = link
@@ -40,7 +40,7 @@ func Db(link model.AormLink) *builder.Builder {
 }
 
 // Migrator 开始一个数据库迁移
-func Migrator(linkCommon model.AormLink) *migrator.Migrator {
+func Migrator(linkCommon base.Link) *migrator.Migrator {
 	mi := &migrator.Migrator{
 		Link: linkCommon,
 	}

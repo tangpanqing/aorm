@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/tangpanqing/aorm/base"
 	"github.com/tangpanqing/aorm/driver"
-	"github.com/tangpanqing/aorm/model"
 	"reflect"
 	"strconv"
 	"strings"
@@ -34,7 +34,7 @@ const RawEq = "RawEq"
 
 // Builder 查询记录所需要的条件
 type Builder struct {
-	Link model.AormLink
+	Link base.Link
 
 	table      interface{}
 	tableAlias string

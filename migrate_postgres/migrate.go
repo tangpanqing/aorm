@@ -256,7 +256,7 @@ func (mm *MigrateExecutor) modifyTable(tableFromCode Table, columnsFromCode []Co
 					fmt.Println(columnCode.ColumnName.String, columnCode.DataType.String, columnDb.DataType.String)
 
 					sql := "ALTER TABLE " + tableFromCode.TableName.String + " alter COLUMN " + getColumnStr(columnCode, "driver")
-					//fmt.Println(model)
+					//fmt.Println(base)
 
 					_, err := mm.Builder.RawSql(sql).Exec()
 					if err != nil {
