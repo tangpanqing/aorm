@@ -2,7 +2,7 @@ package builder
 
 import (
 	"fmt"
-	"github.com/tangpanqing/aorm/helper"
+	"github.com/tangpanqing/aorm/utils"
 	"reflect"
 	"strings"
 )
@@ -98,7 +98,7 @@ func getPrefixByField(field interface{}, prefix ...string) string {
 
 			tableName := getTableMap(tablePointer)
 			strArr := strings.Split(tableName, ".")
-			str = helper.UnderLine(strArr[len(strArr)-1])
+			str = utils.UnderLine(strArr[len(strArr)-1])
 		} else {
 			str = fmt.Sprintf("%v", field)
 		}
@@ -117,7 +117,7 @@ func getTableNameByTable(table interface{}) string {
 	if reflect.Ptr == valueOf.Kind() {
 		tableName := getTableMap(valueOf.Pointer())
 		strArr := strings.Split(tableName, ".")
-		return helper.UnderLine(strArr[len(strArr)-1])
+		return utils.UnderLine(strArr[len(strArr)-1])
 	} else {
 		return fmt.Sprintf("%v", table)
 	}
@@ -127,7 +127,7 @@ func getTableNameByTable(table interface{}) string {
 func getFieldName(field interface{}) string {
 	valueOf := reflect.ValueOf(field)
 	if reflect.Ptr == valueOf.Kind() {
-		return helper.UnderLine(getFieldMap(reflect.ValueOf(field).Pointer()).Name)
+		return utils.UnderLine(getFieldMap(reflect.ValueOf(field).Pointer()).Name)
 	} else {
 		return fmt.Sprintf("%v", field)
 	}
@@ -143,7 +143,7 @@ func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
 		return res[0].String()
 	} else {
 		arr := strings.Split(typeOf.String(), ".")
-		return helper.UnderLine(arr[len(arr)-1])
+		return utils.UnderLine(arr[len(arr)-1])
 	}
 }
 
@@ -161,7 +161,7 @@ func getFieldMapByReflect(destValue reflect.Value, destType reflect.Type) map[st
 func getScansAddr(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
 	var scans []interface{}
 	for _, columnName := range columnNameList {
-		fieldName := helper.CamelString(strings.ToLower(columnName))
+		fieldName := utils.CamelString(strings.ToLower(columnName))
 		index, ok := fieldNameMap[fieldName]
 		if ok {
 			scans = append(scans, destValue.Field(index).Addr().Interface())

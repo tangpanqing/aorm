@@ -1,4 +1,4 @@
-package helper
+package utils
 
 import (
 	"unicode"
@@ -43,9 +43,4 @@ func UnderLine(s string) string {
 		output = append(output, unicode.ToLower(r))
 	}
 	return string(output)
-}
-
-// Ul 将某字符串转成下划线写法-简化用法
-func Ul(s string) string {
-	return UnderLine(s)
 }

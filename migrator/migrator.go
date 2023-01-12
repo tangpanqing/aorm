@@ -3,12 +3,12 @@ package migrator
 import (
 	"github.com/tangpanqing/aorm/builder"
 	"github.com/tangpanqing/aorm/driver"
-	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/migrate_mssql"
 	"github.com/tangpanqing/aorm/migrate_mysql"
 	"github.com/tangpanqing/aorm/migrate_postgres"
 	"github.com/tangpanqing/aorm/migrate_sqlite3"
 	"github.com/tangpanqing/aorm/model"
+	"github.com/tangpanqing/aorm/utils"
 	"reflect"
 	"strings"
 )
@@ -97,6 +97,6 @@ func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
 		return res[0].String()
 	} else {
 		arr := strings.Split(typeOf.String(), ".")
-		return helper.UnderLine(arr[len(arr)-1])
+		return utils.UnderLine(arr[len(arr)-1])
 	}
 }

@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"github.com/tangpanqing/aorm/helper"
+	"github.com/tangpanqing/aorm/utils"
 	"reflect"
 )
 
@@ -18,7 +18,7 @@ func (b *Builder) Where(dest interface{}) *Builder {
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key := helper.UnderLine(typeOf.Elem().Field(i).Name)
+			key := utils.UnderLine(typeOf.Elem().Field(i).Name)
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 			b.whereList = append(b.whereList, WhereItem{Field: key, Opt: Eq, Val: val})
 		}

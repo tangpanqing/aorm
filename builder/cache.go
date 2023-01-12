@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"github.com/tangpanqing/aorm/helper"
+	"github.com/tangpanqing/aorm/utils"
 	"reflect"
 )
 
@@ -52,7 +52,7 @@ func getFieldMap(fieldPointer uintptr) FieldInfo {
 }
 
 func getFieldNameByReflect(field reflect.StructField) (string, map[string]string) {
-	key := helper.UnderLine(field.Name)
+	key := utils.UnderLine(field.Name)
 	tag := field.Tag.Get("aorm")
 	tagMap := getTagMap(tag)
 	if column, ok := tagMap["column"]; ok {

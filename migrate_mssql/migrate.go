@@ -3,8 +3,8 @@ package migrate_mssql
 import (
 	"fmt"
 	"github.com/tangpanqing/aorm/builder"
-	"github.com/tangpanqing/aorm/helper"
 	"github.com/tangpanqing/aorm/null"
+	"github.com/tangpanqing/aorm/utils"
 	"reflect"
 	"strconv"
 	"strings"
@@ -78,7 +78,7 @@ func (mm *MigrateExecutor) getTableFromCode(tableName string) Table {
 func (mm *MigrateExecutor) getColumnsFromCode(typeOf reflect.Type) []Column {
 	var columnsFromCode []Column
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
-		fieldName := helper.UnderLine(typeOf.Elem().Field(i).Name)
+		fieldName := utils.UnderLine(typeOf.Elem().Field(i).Name)
 		fieldType := typeOf.Elem().Field(i).Type.Name()
 		fieldMap := getTagMap(typeOf.Elem().Field(i).Tag.Get("aorm"))
 		columnsFromCode = append(columnsFromCode, Column{
@@ -98,7 +98,7 @@ func (mm *MigrateExecutor) getColumnsFromCode(typeOf reflect.Type) []Column {
 func (mm *MigrateExecutor) getIndexesFromCode(typeOf reflect.Type, tableFromCode Table) []Index {
 	var indexesFromCode []Index
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
-		fieldName := helper.UnderLine(typeOf.Elem().Field(i).Name)
+		fieldName := utils.UnderLine(typeOf.Elem().Field(i).Name)
 		fieldMap := getTagMap(typeOf.Elem().Field(i).Tag.Get("aorm"))
 
 		_, primaryIs := fieldMap["primary"]
