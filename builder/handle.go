@@ -13,12 +13,13 @@ func handleSelectWith(selectItem SelectItem) string {
 		str += "("
 	}
 
-	if selectItem.Prefix != "" {
-		str += selectItem.Prefix
-		str += "."
+	valueOfField := reflect.ValueOf(selectItem.Field)
+	prefix := getPrefixByField(valueOfField, selectItem.Prefix...)
+	if prefix != "" {
+		str += prefix + "."
 	}
 
-	str += getFieldName(selectItem.Field)
+	str += getFieldNameByReflectValue(valueOfField)
 
 	if selectItem.FuncName != "" {
 		str += ")"
@@ -49,7 +50,7 @@ func (b *Builder) handleSelect(paramList []any) (string, []any) {
 
 		if selectItem.FieldNew != nil {
 			str += " AS "
-			str += getFieldName(selectItem.FieldNew)
+			str += getFieldNameByField(selectItem.FieldNew)
 		}
 
 		strList = append(strList, str)
@@ -59,7 +60,7 @@ func (b *Builder) handleSelect(paramList []any) (string, []any) {
 	for i := 0; i < len(b.selectExpList); i++ {
 		subBuilder := *(b.selectExpList[i].Builder)
 		subSql, subParamList := subBuilder.GetSqlAndParams()
-		strList = append(strList, "("+subSql+") AS "+getFieldName(b.selectExpList[i].FieldName))
+		strList = append(strList, "("+subSql+") AS "+getFieldNameByField(b.selectExpList[i].FieldName))
 		paramList = append(paramList, subParamList...)
 	}
 
@@ -68,12 +69,12 @@ func (b *Builder) handleSelect(paramList []any) (string, []any) {
 }
 
 //拼接SQL,查询条件
-func (b *Builder) handleWhere(paramList []any) (string, []any) {
+func (b *Builder) handleWhere(paramList []any, needPrefix bool) (string, []any) {
 	if len(b.whereList) == 0 {
 		return "", paramList
 	}
 
-	strList, paramList := b.whereAndHaving(b.whereList, paramList, false)
+	strList, paramList := b.whereAndHaving(b.whereList, paramList, false, needPrefix)
 
 	return " WHERE " + strings.Join(strList, " AND "), paramList
 }
@@ -90,7 +91,7 @@ func (b *Builder) handleSet(typeOf reflect.Type, valueOf reflect.Value, paramLis
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
 		isNotNull := valueOf.Elem().Field(i).Field(0).Field(1).Bool()
 		if isNotNull {
-			key, _ := getFieldNameByReflect(typeOf.Elem().Field(i))
+			key, _ := getFieldNameByStructField(typeOf.Elem().Field(i))
 
 			val := valueOf.Elem().Field(i).Field(0).Field(0).Interface()
 
@@ -112,10 +113,15 @@ func (b *Builder) handleJoin(paramList []interface{}) (string, []interface{}) {
 	for i := 0; i < len(b.joinList); i++ {
 		joinItem := b.joinList[i]
 
-		str, paramList2 := genJoinConditionStr(joinItem.tableAlias, joinItem.condition, paramList)
+		tableAlias := ""
+		if len(joinItem.tableAlias) > 0 {
+			tableAlias = joinItem.tableAlias[0]
+		}
+
+		str, paramList2 := genJoinConditionStr(tableAlias, joinItem.condition, paramList)
 		paramList = paramList2
 
-		sqlItem := joinItem.joinType + " " + getTableNameByTable(joinItem.table) + " " + joinItem.tableAlias + " ON " + str
+		sqlItem := joinItem.joinType + " " + getTableNameByTable(joinItem.table) + " " + tableAlias + " ON " + str
 		sqlList = append(sqlList, sqlItem)
 	}
 
@@ -130,7 +136,10 @@ func (b *Builder) handleGroup(paramList []any) (string, []any) {
 
 	var groupList []string
 	for i := 0; i < len(b.groupList); i++ {
-		groupList = append(groupList, b.groupList[i].Prefix+"."+getFieldName(b.groupList[i].Field))
+		valueOfField := reflect.ValueOf(b.groupList[i].Field)
+		prefix := getPrefixByField(valueOfField, b.groupList[i].Prefix...)
+		field := getFieldNameByReflectValue(valueOfField)
+		groupList = append(groupList, prefix+"."+field)
 	}
 
 	return " GROUP BY " + strings.Join(groupList, ","), paramList
@@ -142,7 +151,7 @@ func (b *Builder) handleHaving(paramList []any) (string, []any) {
 		return "", paramList
 	}
 
-	strList, paramList := b.whereAndHaving(b.havingList, paramList, true)
+	strList, paramList := b.whereAndHaving(b.havingList, paramList, true, true)
 
 	return " Having " + strings.Join(strList, " AND "), paramList
 }
@@ -155,7 +164,10 @@ func (b *Builder) handleOrder(paramList []any) (string, []any) {
 
 	var orderList []string
 	for i := 0; i < len(b.orderList); i++ {
-		orderList = append(orderList, b.orderList[i].Prefix+"."+getFieldName(b.orderList[i].Field)+" "+b.orderList[i].OrderType)
+		valueOfField := reflect.ValueOf(b.orderList[i].Field)
+		prefix := getPrefixByField(valueOfField, b.orderList[i].Prefix...)
+		field := getFieldNameByReflectValue(valueOfField)
+		orderList = append(orderList, prefix+"."+field+" "+b.orderList[i].OrderType)
 	}
 
 	return " ORDER BY " + strings.Join(orderList, ","), paramList

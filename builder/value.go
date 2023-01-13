@@ -6,7 +6,7 @@ import "reflect"
 func (b *Builder) Value(field interface{}, dest interface{}) error {
 	b.Select(field).Limit(0, 1)
 
-	fieldName := getFieldName(field)
+	fieldName := getFieldNameByField(field)
 
 	rows, errRows := b.GetRows()
 	defer rows.Close()
@@ -45,7 +45,7 @@ func (b *Builder) Value(field interface{}, dest interface{}) error {
 // Pluck 获取某一列的值
 func (b *Builder) Pluck(field interface{}, values interface{}) error {
 	b.Select(field)
-	fieldName := getFieldName(field)
+	fieldName := getFieldNameByField(field)
 
 	rows, errRows := b.GetRows()
 	defer rows.Close()

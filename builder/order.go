@@ -10,11 +10,6 @@ func (b *Builder) OrderAscBy(field interface{}, prefix ...string) *Builder {
 
 // OrderBy 链式操作,以某字段进行排序
 func (b *Builder) OrderBy(field interface{}, orderType string, prefix ...string) *Builder {
-	b.orderList = append(b.orderList, OrderItem{
-		Prefix:    getPrefixByField(field, prefix...),
-		Field:     field,
-		OrderType: orderType,
-	})
-
+	b.orderList = append(b.orderList, OrderItem{prefix, field, orderType})
 	return b
 }

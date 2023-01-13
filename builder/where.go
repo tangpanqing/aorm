@@ -90,6 +90,6 @@ func (b *Builder) WhereRawEq(field interface{}, val interface{}, prefix ...strin
 }
 
 func (b *Builder) whereItemAppend(field interface{}, opt string, val interface{}, prefix ...string) *Builder {
-	b.whereList = append(b.whereList, WhereItem{getPrefixByField(field, prefix...), field, opt, val})
+	b.whereList = append(b.whereList, WhereItem{prefix, field, opt, val})
 	return b
 }

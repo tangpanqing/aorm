@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"github.com/tangpanqing/aorm/utils"
 	"reflect"
 )
 
@@ -26,7 +25,7 @@ func Store(destList ...interface{}) {
 
 		for j := 0; j < valueOf.Elem().NumField(); j++ {
 			fieldPointer := valueOf.Elem().Field(j).Addr().Pointer()
-			key, _ := getFieldNameByReflect(typeof.Elem().Field(j))
+			key, _ := getFieldNameByStructField(typeof.Elem().Field(j))
 			setFieldMap(fieldPointer, FieldInfo{
 				TablePointer: tablePointer,
 				Name:         key,
@@ -49,15 +48,4 @@ func setFieldMap(fieldPointer uintptr, fieldInfo FieldInfo) {
 
 func getFieldMap(fieldPointer uintptr) FieldInfo {
 	return FieldMap[fieldPointer]
-}
-
-func getFieldNameByReflect(field reflect.StructField) (string, map[string]string) {
-	key := utils.UnderLine(field.Name)
-	tag := field.Tag.Get("aorm")
-	tagMap := getTagMap(tag)
-	if column, ok := tagMap["column"]; ok {
-		key = column
-	}
-
-	return key, tagMap
 }

@@ -90,7 +90,7 @@ func (b *Builder) Insert(dest interface{}) (int64, error) {
 	var args []any
 	var place []string
 	for i := 0; i < typeOf.Elem().NumField(); i++ {
-		key, tagMap := getFieldNameByReflect(typeOf.Elem().Field(i))
+		key, tagMap := getFieldNameByStructField(typeOf.Elem().Field(i))
 
 		//如果是Postgres数据库，寻找主键
 		if b.Link.DriverName() == driver.Postgres {
@@ -114,8 +114,7 @@ func (b *Builder) Insert(dest interface{}) (int64, error) {
 	if b.Link.DriverName() == driver.Mssql {
 		return b.insertForMssqlOrPostgres(query+"; SELECT SCOPE_IDENTITY()", args...)
 	} else if b.Link.DriverName() == driver.Postgres {
-		query = convertToPostgresSql(query)
-		return b.insertForMssqlOrPostgres(query+" RETURNING "+primaryKey, args...)
+		return b.insertForMssqlOrPostgres(convertToPostgresSql(query)+" RETURNING "+primaryKey, args...)
 	} else {
 		return b.insertForCommon(query, args...)
 	}
@@ -175,7 +174,7 @@ func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 			isNotNull := valueOf.Index(j).Elem().Field(i).Field(0).Field(1).Bool()
 			if isNotNull {
 				if j == 0 {
-					key, _ := getFieldNameByReflect(typeOf.Elem().Field(i))
+					key, _ := getFieldNameByStructField(typeOf.Elem().Field(i))
 					keys = append(keys, key)
 				}
 
@@ -282,7 +281,7 @@ func (b *Builder) Update(dest interface{}) (int64, error) {
 
 	var args []any
 	setStr, args := b.handleSet(typeOf, valueOf, args)
-	whereStr, args := b.handleWhere(args)
+	whereStr, args := b.handleWhere(args, false)
 	query := "UPDATE " + b.getTableNameCommon(typeOf, valueOf) + setStr + whereStr
 
 	return b.execAffected(query, args...)
@@ -305,7 +304,7 @@ func (b *Builder) Delete(destList ...interface{}) (int64, error) {
 	}
 
 	var args []any
-	whereStr, args := b.handleWhere(args)
+	whereStr, args := b.handleWhere(args, false)
 	query := "DELETE FROM " + tableName + whereStr
 
 	return b.execAffected(query, args...)
@@ -314,7 +313,7 @@ func (b *Builder) Delete(destList ...interface{}) (int64, error) {
 // GroupBy 链式操作,以某字段进行分组
 func (b *Builder) GroupBy(field interface{}, prefix ...string) *Builder {
 	b.groupList = append(b.groupList, GroupItem{
-		Prefix: getPrefixByField(field, prefix...),
+		Prefix: prefix,
 		Field:  field,
 	})
 	return b
@@ -417,24 +416,29 @@ func (b *Builder) Exec() (sql.Result, error) {
 }
 
 //拼接SQL,查询与筛选通用操作
-func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving bool) ([]string, []any) {
+func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving bool, needPrefix bool) ([]string, []any) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
+		valueOfField := reflect.ValueOf(where[i].Field)
+
 		allFieldName := ""
-		if where[i].Prefix != "" {
-			allFieldName += where[i].Prefix + "."
+		if needPrefix {
+			prefix := getPrefixByField(valueOfField, where[i].Prefix...)
+			if prefix != "" {
+				allFieldName += prefix + "."
+			}
 		}
 
 		//如果是mssql或者Postgres,并且来自having的话，需要特殊处理
 		if (b.Link.DriverName() == driver.Mssql || b.Link.DriverName() == driver.Postgres) && isFromHaving {
-			fieldNameCurrent := getFieldName(where[i].Field)
+			fieldNameCurrent := getFieldNameByReflectValue(valueOfField)
 			for m := 0; m < len(b.selectList); m++ {
-				if fieldNameCurrent == getFieldName(b.selectList[m].FieldNew) {
+				if fieldNameCurrent == getFieldNameByField(b.selectList[m].FieldNew) {
 					allFieldName += handleSelectWith(b.selectList[m])
 				}
 			}
 		} else {
-			allFieldName += getFieldName(where[i].Field)
+			allFieldName += getFieldNameByReflectValue(valueOfField)
 		}
 
 		if "**builder.Builder" == reflect.TypeOf(where[i].Val).String() {
@@ -502,7 +506,7 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 			}
 
 			if where[i].Opt == RawEq {
-				whereList = append(whereList, allFieldName+Eq+getPrefixByField(where[i].Val)+"."+getFieldName(where[i].Val))
+				whereList = append(whereList, allFieldName+Eq+getPrefixByField(reflect.ValueOf(where[i].Val))+"."+getFieldNameByField(where[i].Val))
 			}
 		}
 	}
@@ -543,7 +547,7 @@ func (b *Builder) GetSqlAndParams() (string, []interface{}) {
 	var args []interface{}
 	tableName := getTableNameByTable(b.table)
 	fieldStr, args := b.handleSelect(args)
-	whereStr, args := b.handleWhere(args)
+	whereStr, args := b.handleWhere(args, true)
 	joinStr, args := b.handleJoin(args)
 	groupStr, args := b.handleGroup(args)
 	havingStr, args := b.handleHaving(args)

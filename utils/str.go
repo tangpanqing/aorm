@@ -29,6 +29,11 @@ func CamelString(s string) string {
 	return string(data[:])
 }
 
+// Cs 将某字符串转成驼峰写法
+func Cs(s string) string {
+	return CamelString(s)
+}
+
 // UnderLine 将某字符串转成下划线写法
 func UnderLine(s string) string {
 	var output []rune
@@ -43,4 +48,9 @@ func UnderLine(s string) string {
 		output = append(output, unicode.ToLower(r))
 	}
 	return string(output)
+}
+
+// Ul 将某字符串转成下划线写法
+func Ul(s string) string {
+	return UnderLine(s)
 }

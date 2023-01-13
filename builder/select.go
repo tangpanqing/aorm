@@ -39,13 +39,7 @@ func (b *Builder) SelectAvg(field interface{}, fieldNew interface{}, prefix ...s
 }
 
 func (b *Builder) selectCommon(funcName string, field interface{}, fieldNew interface{}, prefix ...string) *Builder {
-	b.selectList = append(b.selectList, SelectItem{
-		funcName,
-		getPrefixByField(field, prefix...),
-		field,
-		fieldNew,
-	})
-
+	b.selectList = append(b.selectList, SelectItem{funcName, prefix, field, fieldNew})
 	return b
 }
 

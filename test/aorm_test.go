@@ -17,7 +17,7 @@ import (
 
 type Student struct {
 	StudentId null.Int    `aorm:"primary;auto_increment" json:"studentId"`
-	Name      null.String `aorm:"size:100;not null;comment:名字" json:"name"`
+	Name      null.String `aorm:"column:student_name;size:100;not null;comment:名字" json:"name"`
 }
 
 func (s *Student) TableOpinion() map[string]string {

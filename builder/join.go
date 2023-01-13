@@ -16,16 +16,6 @@ func (b *Builder) Join(table interface{}, condition []JoinCondition, alias ...st
 }
 
 func (b *Builder) join(joinType string, table interface{}, condition []JoinCondition, alias ...string) *Builder {
-	joinTableAlias := ""
-	if len(alias) > 0 {
-		joinTableAlias = alias[0]
-	}
-
-	b.joinList = append(b.joinList, JoinItem{
-		joinType:   joinType,
-		table:      table,
-		tableAlias: joinTableAlias,
-		condition:  condition,
-	})
+	b.joinList = append(b.joinList, JoinItem{joinType, table, alias, condition})
 	return b
 }

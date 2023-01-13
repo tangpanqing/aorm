@@ -8,12 +8,12 @@ import (
 )
 
 type GroupItem struct {
-	Prefix string
+	Prefix []string
 	Field  interface{}
 }
 
 type WhereItem struct {
-	Prefix string
+	Prefix []string
 	Field  interface{}
 	Opt    string
 	Val    interface{}
@@ -21,7 +21,7 @@ type WhereItem struct {
 
 type SelectItem struct {
 	FuncName string
-	Prefix   string
+	Prefix   []string
 	Field    interface{}
 	FieldNew interface{}
 }
@@ -32,7 +32,7 @@ type SelectExpItem struct {
 }
 
 type OrderItem struct {
-	Prefix    string
+	Prefix    []string
 	Field     interface{}
 	OrderType string
 }
@@ -45,7 +45,7 @@ type LimitItem struct {
 type JoinItem struct {
 	joinType   string
 	table      interface{}
-	tableAlias string
+	tableAlias []string
 	condition  []JoinCondition
 }
 
@@ -53,45 +53,35 @@ type JoinCondition struct {
 	FieldOfCurrentTable interface{}
 	Opt                 string
 	FieldOfOtherTable   interface{}
-	AliasOfOtherTable   string
+	AliasOfOtherTable   []string
 }
 
 //GenWhereItem 产生一个 WhereItem,用作 where 条件里
 func GenWhereItem(field interface{}, opt string, val interface{}, prefix ...string) WhereItem {
-	return WhereItem{getPrefixByField(field, prefix...), field, opt, val}
+	return WhereItem{prefix, field, opt, val}
 }
 
 //GenHavingItem 产生一个 WhereItem,用作 having 条件里
 func GenHavingItem(field interface{}, opt string, val interface{}) WhereItem {
-	return WhereItem{"", field, opt, val}
+	return WhereItem{[]string{}, field, opt, val}
 }
 
 //GenJoinCondition 产生一个 JoinCondition,用作 join 条件里
 func GenJoinCondition(fieldOfCurrentTable interface{}, opt string, fieldOfOtherTable interface{}, aliasOfOtherTable ...string) JoinCondition {
-	alias := ""
-	if len(aliasOfOtherTable) > 0 {
-		alias = aliasOfOtherTable[0]
-	}
-
 	return JoinCondition{
 		FieldOfCurrentTable: fieldOfCurrentTable,
 		Opt:                 opt,
 		FieldOfOtherTable:   fieldOfOtherTable,
-		AliasOfOtherTable:   alias,
+		AliasOfOtherTable:   aliasOfOtherTable,
 	}
 }
 
 //getPrefixByField 获取字段前缀,如果传入则使用传入值，默认使用该字段的表名
-func getPrefixByField(field interface{}, prefix ...string) string {
+func getPrefixByField(valueOf reflect.Value, prefix ...string) string {
 	str := ""
 	if len(prefix) > 0 {
 		str = prefix[0]
 	} else {
-		if field == nil {
-			panic("当前field不能是nil")
-		}
-
-		valueOf := reflect.ValueOf(field)
 		if reflect.Ptr == valueOf.Kind() {
 			fieldPointer := valueOf.Pointer()
 			tablePointer := getFieldMap(fieldPointer).TablePointer
@@ -100,7 +90,7 @@ func getPrefixByField(field interface{}, prefix ...string) string {
 			strArr := strings.Split(tableName, ".")
 			str = utils.UnderLine(strArr[len(strArr)-1])
 		} else {
-			str = fmt.Sprintf("%v", field)
+			//str = fmt.Sprintf("%v", valueOf.Interface())
 		}
 	}
 
@@ -115,25 +105,13 @@ func getTableNameByTable(table interface{}) string {
 
 	valueOf := reflect.ValueOf(table)
 	if reflect.Ptr == valueOf.Kind() {
-		tableName := getTableMap(valueOf.Pointer())
-		strArr := strings.Split(tableName, ".")
-		return utils.UnderLine(strArr[len(strArr)-1])
+		return getTableMap(valueOf.Pointer())
 	} else {
 		return fmt.Sprintf("%v", table)
 	}
 }
 
-//getFieldName 根据传入字段，获取字段名
-func getFieldName(field interface{}) string {
-	valueOf := reflect.ValueOf(field)
-	if reflect.Ptr == valueOf.Kind() {
-		return utils.UnderLine(getFieldMap(reflect.ValueOf(field).Pointer()).Name)
-	} else {
-		return fmt.Sprintf("%v", field)
-	}
-}
-
-//反射表名,优先从方法获取,没有方法则从名字获取
+//getTableNameByReflect 反射表名,优先从方法获取,没有方法则从名字获取
 func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
 	method, isSet := typeOf.MethodByName("TableName")
 	if isSet {
@@ -147,7 +125,32 @@ func getTableNameByReflect(typeOf reflect.Type, valueOf reflect.Value) string {
 	}
 }
 
-//从结构体反射出来的属性名
+//getFieldNameByField 根据传入字段，获取字段名
+func getFieldNameByField(field interface{}) string {
+	return getFieldNameByReflectValue(reflect.ValueOf(field))
+}
+
+//getFieldNameByReflectNew 根据传入字段，获取字段名
+func getFieldNameByReflectValue(valueOfField reflect.Value) string {
+	if reflect.Ptr == valueOfField.Kind() {
+		return getFieldMap(valueOfField.Pointer()).Name
+	} else {
+		return fmt.Sprintf("%v", valueOfField)
+	}
+}
+
+//getFieldNameByStructField
+func getFieldNameByStructField(field reflect.StructField) (string, map[string]string) {
+	key := utils.UnderLine(field.Name)
+	tag := field.Tag.Get("aorm")
+	tagMap := getTagMap(tag)
+	if column, ok := tagMap["column"]; ok {
+		key = column
+	}
+	return key, tagMap
+}
+
+//getFieldMapByReflect 从结构体反射出来的属性名
 func getFieldMapByReflect(destValue reflect.Value, destType reflect.Type) map[string]int {
 	fieldNameMap := make(map[string]int)
 	for i := 0; i < destValue.NumField(); i++ {
@@ -157,7 +160,7 @@ func getFieldMapByReflect(destValue reflect.Value, destType reflect.Type) map[st
 	return fieldNameMap
 }
 
-//获取赋值的地址
+//getScansAddr 获取赋值的地址
 func getScansAddr(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
 	var scans []interface{}
 	for _, columnName := range columnNameList {
@@ -174,22 +177,19 @@ func getScansAddr(columnNameList []string, fieldNameMap map[string]int, destValu
 	return scans
 }
 
-//产生关联查询条件
+//genJoinConditionStr 产生关联查询条件
 func genJoinConditionStr(aliasOfCurrentTable string, joinCondition []JoinCondition, paramList []interface{}) (string, []interface{}) {
 	var sqlList []string
 	for i := 0; i < len(joinCondition); i++ {
-		fieldNameOfCurrentTable := getFieldName(joinCondition[i].FieldOfCurrentTable)
+		fieldNameOfCurrentTable := getFieldNameByField(joinCondition[i].FieldOfCurrentTable)
 		if joinCondition[i].Opt == RawEq {
 			if aliasOfCurrentTable == "" {
-				aliasOfCurrentTable = getPrefixByField(joinCondition[i].FieldOfCurrentTable)
+				aliasOfCurrentTable = getPrefixByField(reflect.ValueOf(joinCondition[i].FieldOfCurrentTable))
 			}
 
-			aliasOfOtherTable := joinCondition[i].AliasOfOtherTable
-			if aliasOfOtherTable == "" {
-				aliasOfOtherTable = getPrefixByField(joinCondition[i].FieldOfOtherTable)
-			}
+			aliasOfOtherTable := getPrefixByField(reflect.ValueOf(joinCondition[i].FieldOfOtherTable), joinCondition[i].AliasOfOtherTable...)
+			fieldNameOfOtherTable := getFieldNameByField(joinCondition[i].FieldOfOtherTable)
 
-			fieldNameOfOtherTable := getFieldName(joinCondition[i].FieldOfOtherTable)
 			sqlList = append(sqlList, aliasOfCurrentTable+"."+fieldNameOfCurrentTable+"="+aliasOfOtherTable+"."+fieldNameOfOtherTable)
 		}
 	}
@@ -197,7 +197,7 @@ func genJoinConditionStr(aliasOfCurrentTable string, joinCondition []JoinConditi
 	return strings.Join(sqlList, " AND "), paramList
 }
 
-//将一个interface抽取成数组
+//toAnyArr 将一个interface抽取成数组
 func toAnyArr(val any) []any {
 	var values []any
 	switch val.(type) {
