@@ -251,27 +251,29 @@ func (b *Builder) GetOne(obj interface{}) error {
 		return errRows
 	}
 
-	destType := reflect.TypeOf(obj).Elem()
-	destValue := reflect.ValueOf(obj).Elem()
+	if rows.Next() {
+		destType := reflect.TypeOf(obj).Elem()
+		destValue := reflect.ValueOf(obj).Elem()
 
-	//从数据库中读出来的字段名字
-	columnNameList, errColumns := rows.Columns()
-	if errColumns != nil {
-		return errColumns
-	}
+		//从数据库中读出来的字段名字
+		columnNameList, errColumns := rows.Columns()
+		if errColumns != nil {
+			return errColumns
+		}
 
-	//从结构体反射出来的属性名
-	fieldNameMap := getFieldMapByReflect(destValue, destType)
+		//从结构体反射出来的属性名
+		fieldNameMap := getFieldMapByReflect(destValue, destType)
 
-	for rows.Next() {
 		scans := getScansAddr(columnNameList, fieldNameMap, destValue)
 		err := rows.Scan(scans...)
 		if err != nil {
 			return err
 		}
-	}
 
-	return nil
+		return nil
+	} else {
+		return errors.New("NOT FOUND")
+	}
 }
 
 // Update 更新记录
