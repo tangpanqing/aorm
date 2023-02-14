@@ -30,6 +30,7 @@ const Between = "BETWEEN"
 const NotBetween = "NOT BETWEEN"
 
 const Raw = "Raw"
+const FindInSet = "FindInSet"
 const RawEq = "RawEq"
 
 // Builder 查询记录所需要的条件
@@ -501,6 +502,11 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 
 				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"("+strings.Join(placeholder, ",")+")")
 				args = append(args, values...)
+			}
+
+			if where[i].Opt == FindInSet {
+				whereList = append(whereList, "FIND_IN_SET(?,"+getPrefixByField(reflect.ValueOf(where[i].Field), where[i].Prefix...)+"."+getFieldNameByField(where[i].Field)+")")
+				args = append(args, where[i].Val)
 			}
 
 			if where[i].Opt == Raw {
