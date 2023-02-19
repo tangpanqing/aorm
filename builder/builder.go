@@ -178,23 +178,30 @@ func getScansAddr(columnNameList []string, fieldNameMap map[string]int, destValu
 }
 
 //genJoinConditionStr 产生关联查询条件
-func genJoinConditionStr(aliasOfCurrentTable string, joinCondition []JoinCondition, paramList []interface{}) (string, []interface{}) {
+func genJoinConditionStr(aliasOfCurrentTable string, joinCondition []JoinCondition) (string, []interface{}) {
+	var paramList []interface{}
 	var sqlList []string
 	for i := 0; i < len(joinCondition); i++ {
 		fieldNameOfCurrentTable := getFieldNameByField(joinCondition[i].FieldOfCurrentTable)
-		if joinCondition[i].Opt == RawEq {
-			if aliasOfCurrentTable == "" {
-				aliasOfCurrentTable = getPrefixByField(reflect.ValueOf(joinCondition[i].FieldOfCurrentTable))
-			}
 
+		if aliasOfCurrentTable == "" {
+			aliasOfCurrentTable = getPrefixByField(reflect.ValueOf(joinCondition[i].FieldOfCurrentTable))
+		}
+
+		fieldNameOfOtherTable := getFieldNameByField(joinCondition[i].FieldOfOtherTable)
+
+		if joinCondition[i].Opt == RawEq {
 			aliasOfOtherTable := getPrefixByField(reflect.ValueOf(joinCondition[i].FieldOfOtherTable), joinCondition[i].AliasOfOtherTable...)
 			if aliasOfOtherTable != "" {
 				aliasOfOtherTable += "."
 			}
 
-			fieldNameOfOtherTable := getFieldNameByField(joinCondition[i].FieldOfOtherTable)
-
 			sqlList = append(sqlList, aliasOfCurrentTable+"."+fieldNameOfCurrentTable+"="+aliasOfOtherTable+fieldNameOfOtherTable)
+		}
+
+		if joinCondition[i].Opt == Eq {
+			sqlList = append(sqlList, aliasOfCurrentTable+"."+fieldNameOfCurrentTable+"=?")
+			paramList = append(paramList, fieldNameOfOtherTable)
 		}
 	}
 

@@ -118,8 +118,8 @@ func (b *Builder) handleJoin(paramList []interface{}) (string, []interface{}) {
 			tableAlias = joinItem.tableAlias[0]
 		}
 
-		str, paramList2 := genJoinConditionStr(tableAlias, joinItem.condition, paramList)
-		paramList = paramList2
+		str, paramList2 := genJoinConditionStr(tableAlias, joinItem.condition)
+		paramList = append(paramList, paramList2...)
 
 		sqlItem := joinItem.joinType + " " + getTableNameByTable(joinItem.table) + " " + tableAlias + " ON " + str
 		sqlList = append(sqlList, sqlItem)

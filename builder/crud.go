@@ -553,10 +553,10 @@ func (b *Builder) GetSqlAndParams() (string, []interface{}) {
 	}
 
 	var args []interface{}
-	tableName := getTableNameByTable(b.table)
 	fieldStr, args := b.handleSelect(args)
-	whereStr, args := b.handleWhere(args, true)
+	tableName := getTableNameByTable(b.table)
 	joinStr, args := b.handleJoin(args)
+	whereStr, args := b.handleWhere(args, true)
 	groupStr, args := b.handleGroup(args)
 	havingStr, args := b.handleHaving(args)
 	orderStr, args := b.handleOrder(args)
