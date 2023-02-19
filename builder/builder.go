@@ -188,9 +188,13 @@ func genJoinConditionStr(aliasOfCurrentTable string, joinCondition []JoinConditi
 			}
 
 			aliasOfOtherTable := getPrefixByField(reflect.ValueOf(joinCondition[i].FieldOfOtherTable), joinCondition[i].AliasOfOtherTable...)
+			if aliasOfOtherTable != "" {
+				aliasOfOtherTable += "."
+			}
+
 			fieldNameOfOtherTable := getFieldNameByField(joinCondition[i].FieldOfOtherTable)
 
-			sqlList = append(sqlList, aliasOfCurrentTable+"."+fieldNameOfCurrentTable+"="+aliasOfOtherTable+"."+fieldNameOfOtherTable)
+			sqlList = append(sqlList, aliasOfCurrentTable+"."+fieldNameOfCurrentTable+"="+aliasOfOtherTable+fieldNameOfOtherTable)
 		}
 	}
 
