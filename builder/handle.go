@@ -138,8 +138,11 @@ func (b *Builder) handleGroup(paramList []any) (string, []any) {
 	for i := 0; i < len(b.groupList); i++ {
 		valueOfField := reflect.ValueOf(b.groupList[i].Field)
 		prefix := getPrefixByField(valueOfField, b.groupList[i].Prefix...)
+		if prefix != "" {
+			prefix += "."
+		}
 		field := getFieldNameByReflectValue(valueOfField)
-		groupList = append(groupList, prefix+"."+field)
+		groupList = append(groupList, prefix+field)
 	}
 
 	return " GROUP BY " + strings.Join(groupList, ","), paramList
