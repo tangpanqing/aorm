@@ -89,6 +89,14 @@ func (b *Builder) WhereFindInSet(val interface{}, field interface{}, prefix ...s
 	return b.whereItemAppend(field, FindInSet, val, prefix...)
 }
 
+func (b *Builder) WhereIsNull(field interface{}, prefix ...string) *Builder {
+	return b.whereItemAppend(field, Raw, "IS NULL", prefix...)
+}
+
+func (b *Builder) WhereIsNOTNull(field interface{}, prefix ...string) *Builder {
+	return b.whereItemAppend(field, Raw, "IS NOT NULL", prefix...)
+}
+
 func (b *Builder) WhereRawEq(field interface{}, val interface{}, prefix ...string) *Builder {
 	return b.whereItemAppend(field, RawEq, val, prefix...)
 }

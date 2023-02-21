@@ -510,7 +510,7 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 			}
 
 			if where[i].Opt == Raw {
-				whereList = append(whereList, allFieldName+fmt.Sprintf("%v", where[i].Val))
+				whereList = append(whereList, allFieldName+" "+fmt.Sprintf("%v", where[i].Val))
 			}
 
 			if where[i].Opt == RawEq {

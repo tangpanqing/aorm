@@ -116,6 +116,8 @@ func TestAll(t *testing.T) {
 		testGetMany(dbItem)
 		testUpdate(dbItem, id)
 
+		testNull(dbItem, id)
+
 		isExists := testExists(dbItem, id)
 		if isExists != true {
 			panic("应该存在，但是数据库不存在")
@@ -359,6 +361,19 @@ func testExists(db *base.Db, id int64) bool {
 		panic(db.DriverName() + " testExists " + "found err:" + err.Error())
 	}
 	return exists
+}
+
+func testNull(db *base.Db, id int64) {
+	var p Person
+	err := aorm.Db(db).Table(&person).WhereIsNOTNull(&person.Id).WhereEq(&person.Id, id).OrderBy(&person.Id, builder.Desc).Debug(false).GetOne(&p)
+	if err != nil {
+		panic(db.DriverName() + " test WhereIsNOTNull " + "found err:" + err.Error())
+	}
+
+	_, err = aorm.Db(db).Table(&person).WhereIsNull(&person.Id).Debug(false).Count("*")
+	if err != nil {
+		panic(db.DriverName() + " test WhereIsNull " + "found err:" + err.Error())
+	}
 }
 
 func testTable(db *base.Db) {
