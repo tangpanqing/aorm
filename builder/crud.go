@@ -226,7 +226,7 @@ func (b *Builder) GetMany(values interface{}) error {
 	}
 
 	//从结构体反射出来的属性名
-	fieldNameMap := getFieldMapByReflect(destValue, destType)
+	fieldNameMap := getFieldMapByReflect(destType)
 
 	for rows.Next() {
 		scans := getScansAddr(columnNameList, fieldNameMap, destValue)
@@ -263,7 +263,7 @@ func (b *Builder) GetOne(obj interface{}) error {
 		}
 
 		//从结构体反射出来的属性名
-		fieldNameMap := getFieldMapByReflect(destValue, destType)
+		fieldNameMap := getFieldMapByReflect(destType)
 
 		scans := getScansAddr(columnNameList, fieldNameMap, destValue)
 		err := rows.Scan(scans...)

@@ -151,29 +151,37 @@ func getFieldNameByStructField(field reflect.StructField) (string, map[string]st
 }
 
 //getFieldMapByReflect 从结构体反射出来的属性名
-func getFieldMapByReflect(destValue reflect.Value, destType reflect.Type) map[string]int {
-	fieldNameMap := make(map[string]int)
-	for i := 0; i < destValue.NumField(); i++ {
-		fieldNameMap[destType.Field(i).Name] = i
+func getFieldMapByReflect(destType reflect.Type) map[string][]int {
+	fieldNameMap := make(map[string][]int)
+	for i := 0; i < destType.NumField(); i++ {
+		if destType.Field(i).Type.Name() != "Int" && destType.Field(i).Type.Name() != "Float" && destType.Field(i).Type.Name() != "Time" && destType.Field(i).Type.Name() != "String" && destType.Field(i).Type.Name() != "Bool" {
+			for j := 0; j < destType.Field(i).Type.NumField(); j++ {
+				fieldNameMap[destType.Field(i).Type.Field(j).Name] = []int{i, j}
+			}
+		} else {
+			fieldNameMap[destType.Field(i).Name] = []int{i}
+		}
 	}
-
 	return fieldNameMap
 }
 
 //getScansAddr 获取赋值的地址
-func getScansAddr(columnNameList []string, fieldNameMap map[string]int, destValue reflect.Value) []interface{} {
+func getScansAddr(columnNameList []string, fieldNameMap map[string][]int, destValue reflect.Value) []interface{} {
 	var scans []interface{}
 	for _, columnName := range columnNameList {
 		fieldName := utils.CamelString(strings.ToLower(columnName))
 		index, ok := fieldNameMap[fieldName]
 		if ok {
-			scans = append(scans, destValue.Field(index).Addr().Interface())
+			t := destValue
+			for j := 0; j < len(index); j++ {
+				t = t.Field(index[j])
+			}
+			scans = append(scans, t.Addr().Interface())
 		} else {
 			var emptyVal interface{}
 			scans = append(scans, &emptyVal)
 		}
 	}
-
 	return scans
 }
 
