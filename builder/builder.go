@@ -154,7 +154,17 @@ func getFieldNameByStructField(field reflect.StructField) (string, map[string]st
 func getFieldMapByReflect(destType reflect.Type) map[string][]int {
 	fieldNameMap := make(map[string][]int)
 	for i := 0; i < destType.NumField(); i++ {
-		if destType.Field(i).Type.Name() != "Int" && destType.Field(i).Type.Name() != "Float" && destType.Field(i).Type.Name() != "Time" && destType.Field(i).Type.Name() != "String" && destType.Field(i).Type.Name() != "Bool" {
+		isMultiLevel := false
+		if "struct" == destType.Field(i).Type.Kind().String() && (destType.Field(i).Type.Name() != "Int" &&
+			destType.Field(i).Type.Name() != "Float" &&
+			destType.Field(i).Type.Name() != "Time" &&
+			destType.Field(i).Type.Name() != "String" &&
+			destType.Field(i).Type.Name() != "Bool") {
+			isMultiLevel = true
+		}
+
+		//fmt.Println(isMore, destType, destType.Field(i).Name, destType.Field(i).Type.Name(), destType.Field(i).Type.Kind().String())
+		if isMultiLevel {
 			for j := 0; j < destType.Field(i).Type.NumField(); j++ {
 				fieldNameMap[destType.Field(i).Type.Field(j).Name] = []int{i, j}
 			}
