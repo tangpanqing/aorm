@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"unsafe"
 )
 
 const Desc = "DESC"
@@ -284,7 +283,10 @@ func (b *Builder) Update(dest interface{}) (int64, error) {
 
 	var args []any
 	setStr, args := b.handleSet(typeOf, valueOf, args)
-	whereStr, args := b.handleWhere(args, false)
+	whereStr, args, err := b.handleWhere(args, false)
+	if err != nil {
+		return 0, err
+	}
 	query := "UPDATE " + b.getTableNameCommon(typeOf, valueOf) + setStr + whereStr
 
 	return b.execAffected(query, args...)
@@ -303,11 +305,17 @@ func (b *Builder) Delete(destList ...interface{}) (int64, error) {
 	}
 
 	if tableName == "" {
+		if b.table == nil {
+			return 0, errors.New("表名不能为空")
+		}
 		tableName = getTableNameByTable(b.table)
 	}
 
 	var args []any
-	whereStr, args := b.handleWhere(args, false)
+	whereStr, args, err := b.handleWhere(args, false)
+	if err != nil {
+		return 0, err
+	}
 	query := "DELETE FROM " + tableName + whereStr
 
 	return b.execAffected(query, args...)
@@ -348,6 +356,10 @@ func (b *Builder) LockForUpdate(isLockForUpdate bool) *Builder {
 
 // Truncate 清空记录
 func (b *Builder) Truncate() (int64, error) {
+	if b.table == nil {
+		return 0, errors.New("表名不能为空")
+	}
+
 	query := ""
 	if b.Link.DriverName() == driver.Sqlite3 {
 		query = "DELETE FROM " + getTableNameByTable(b.table)
@@ -367,7 +379,10 @@ func (b *Builder) RawSql(query string, args ...interface{}) *Builder {
 
 // GetRows 获取行操作
 func (b *Builder) GetRows() (*sql.Rows, error) {
-	query, args := b.GetSqlAndParams()
+	query, args, err := b.GetSqlAndParams()
+	if err != nil {
+		return nil, err
+	}
 
 	if b.Link.DriverName() == driver.Postgres {
 		query = convertToPostgresSql(query)
@@ -419,7 +434,7 @@ func (b *Builder) Exec() (sql.Result, error) {
 }
 
 //拼接SQL,查询与筛选通用操作
-func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving bool, needPrefix bool) ([]string, []any) {
+func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving bool, needPrefix bool) ([]string, []any, error) {
 	var whereList []string
 	for i := 0; i < len(where); i++ {
 		valueOfField := reflect.ValueOf(where[i].Field)
@@ -445,8 +460,11 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 		}
 
 		if "**builder.Builder" == reflect.TypeOf(where[i].Val).String() {
-			subBuilder := *(**Builder)(unsafe.Pointer(reflect.ValueOf(where[i].Val).Pointer()))
-			subSql, subParams := subBuilder.GetSqlAndParams()
+			subBuilder := *(**Builder)(reflect.ValueOf(where[i].Val).UnsafePointer())
+			subSql, subParams, err := subBuilder.GetSqlAndParams()
+			if err != nil {
+				return whereList, args, err
+			}
 
 			if where[i].Opt != Raw {
 				whereList = append(whereList, allFieldName+" "+where[i].Opt+" "+"("+subSql+")")
@@ -518,7 +536,7 @@ func (b *Builder) whereAndHaving(where []WhereItem, args []any, isFromHaving boo
 			}
 		}
 	}
-	return whereList, args
+	return whereList, args, nil
 }
 
 func (b *Builder) getConcatForFloat(vars ...string) string {
@@ -547,25 +565,40 @@ func (b *Builder) getTableNameCommon(typeOf reflect.Type, valueOf reflect.Value)
 	return getTableNameByReflect(typeOf, valueOf)
 }
 
-func (b *Builder) GetSqlAndParams() (string, []interface{}) {
+func (b *Builder) GetSqlAndParams() (string, []interface{}, error) {
 	if b.query != "" {
-		return b.query, b.args
+		return b.query, b.args, nil
 	}
 
 	var args []interface{}
-	fieldStr, args := b.handleSelect(args)
-	tableName := getTableNameByTable(b.table)
+	selectStr, args, err := b.handleSelect(args)
+	if err != nil {
+		return "", args, err
+	}
+
+	tableStr, args, err := b.handleTable(args)
+	if err != nil {
+		return "", args, err
+	}
 	joinStr, args := b.handleJoin(args)
-	whereStr, args := b.handleWhere(args, true)
+	whereStr, args, err := b.handleWhere(args, true)
+	if err != nil {
+		return "", args, err
+	}
+
 	groupStr, args := b.handleGroup(args)
-	havingStr, args := b.handleHaving(args)
+	havingStr, args, err := b.handleHaving(args)
+	if err != nil {
+		return "", args, err
+	}
+
 	orderStr, args := b.handleOrder(args)
 	limitStr, args := b.handleLimit(args)
 	lockStr := b.handleLockForUpdate()
 
-	query := "SELECT " + fieldStr + " FROM " + tableName + " " + b.tableAlias + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
+	query := selectStr + tableStr + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
 
-	return query, args
+	return query, args, nil
 }
 
 // execAffected 通用执行-更新,删除

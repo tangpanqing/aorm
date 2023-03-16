@@ -386,6 +386,13 @@ func testTable(db *base.Db) {
 	if err2 != nil {
 		panic(db.DriverName() + " testTable " + "found err:" + err2.Error())
 	}
+
+	var personList2 []Person
+	subTable := aorm.Db(db).Table(&person)
+	err3 := aorm.Db(db).Table(&subTable, "o").Debug(false).GetMany(&personList2)
+	if err3 != nil {
+		panic(db.DriverName() + " testTable " + "found err:" + err3.Error())
+	}
 }
 
 func testSelect(db *base.Db) {

@@ -1,6 +1,8 @@
 package builder
 
 import (
+	"errors"
+	"fmt"
 	"github.com/tangpanqing/aorm/driver"
 	"reflect"
 	"strings"
@@ -29,7 +31,7 @@ func handleSelectWith(selectItem SelectItem) string {
 }
 
 //拼接SQL,字段相关
-func (b *Builder) handleSelect(paramList []any) (string, []any) {
+func (b *Builder) handleSelect(paramList []any) (string, []any, error) {
 	fieldStr := ""
 	if b.distinct {
 		fieldStr += "DISTINCT "
@@ -37,7 +39,7 @@ func (b *Builder) handleSelect(paramList []any) (string, []any) {
 
 	if len(b.selectList) == 0 && len(b.selectExpList) == 0 {
 		fieldStr += "*"
-		return fieldStr, paramList
+		return "SELECT " + fieldStr, paramList, nil
 	}
 
 	var strList []string
@@ -59,24 +61,63 @@ func (b *Builder) handleSelect(paramList []any) (string, []any) {
 	//处理子语句
 	for i := 0; i < len(b.selectExpList); i++ {
 		subBuilder := *(b.selectExpList[i].Builder)
-		subSql, subParamList := subBuilder.GetSqlAndParams()
+		subSql, subParamList, err := subBuilder.GetSqlAndParams()
+		if err != nil {
+			return "", paramList, err
+		}
 		strList = append(strList, "("+subSql+") AS "+getFieldNameByField(b.selectExpList[i].FieldName))
 		paramList = append(paramList, subParamList...)
 	}
 
 	fieldStr += strings.Join(strList, ",")
-	return fieldStr, paramList
+	return "SELECT " + fieldStr, paramList, nil
+}
+
+func (b *Builder) handleTable(paramList []any) (string, []any, error) {
+	if b.table == nil {
+		return "", paramList, errors.New("表不能为空")
+	}
+
+	var tableName string
+
+	valueOf := reflect.ValueOf(b.table)
+	if reflect.Ptr == valueOf.Kind() {
+
+		if "**builder.Builder" != valueOf.Type().String() {
+			tableName = getTableMap(valueOf.Pointer())
+		} else {
+			if b.tableAlias == "" {
+				return "", paramList, errors.New("别名不能为空")
+			}
+
+			subBuilder := *(**Builder)(valueOf.UnsafePointer())
+			subSql, subParamList, err := subBuilder.GetSqlAndParams()
+			if err != nil {
+				return "", paramList, err
+			}
+
+			tableName = "(" + subSql + ")"
+			paramList = append(paramList, subParamList...)
+		}
+	} else {
+		tableName = fmt.Sprintf("%v", b.table)
+	}
+
+	return " FROM " + tableName + " " + b.tableAlias, paramList, nil
 }
 
 //拼接SQL,查询条件
-func (b *Builder) handleWhere(paramList []any, needPrefix bool) (string, []any) {
+func (b *Builder) handleWhere(paramList []any, needPrefix bool) (string, []any, error) {
 	if len(b.whereList) == 0 {
-		return "", paramList
+		return "", paramList, nil
 	}
 
-	strList, paramList := b.whereAndHaving(b.whereList, paramList, false, needPrefix)
+	strList, paramList, err := b.whereAndHaving(b.whereList, paramList, false, needPrefix)
+	if err != nil {
+		return "", paramList, nil
+	}
 
-	return " WHERE " + strings.Join(strList, " AND "), paramList
+	return " WHERE " + strings.Join(strList, " AND "), paramList, nil
 }
 
 //拼接SQL,更新信息
@@ -149,14 +190,17 @@ func (b *Builder) handleGroup(paramList []any) (string, []any) {
 }
 
 //拼接SQL,结果筛选
-func (b *Builder) handleHaving(paramList []any) (string, []any) {
+func (b *Builder) handleHaving(paramList []any) (string, []any, error) {
 	if len(b.havingList) == 0 {
-		return "", paramList
+		return "", paramList, nil
 	}
 
-	strList, paramList := b.whereAndHaving(b.havingList, paramList, true, true)
+	strList, paramList, err := b.whereAndHaving(b.havingList, paramList, true, true)
+	if err != nil {
+		return "", paramList, err
+	}
 
-	return " Having " + strings.Join(strList, " AND "), paramList
+	return " Having " + strings.Join(strList, " AND "), paramList, nil
 }
 
 //拼接SQL,结果排序

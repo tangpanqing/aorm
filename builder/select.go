@@ -38,6 +38,16 @@ func (b *Builder) SelectAvg(field interface{}, fieldNew interface{}, prefix ...s
 	return b.selectCommon("Avg", field, fieldNew, prefix...)
 }
 
+// SelectConcat 链式操作-concat(field) as field_new
+func (b *Builder) SelectConcat(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("concat", field, fieldNew, prefix...)
+}
+
+// SelectGroupConcat 链式操作-group_concat(field) as field_new
+func (b *Builder) SelectGroupConcat(field interface{}, fieldNew interface{}, prefix ...string) *Builder {
+	return b.selectCommon("group_concat", field, fieldNew, prefix...)
+}
+
 func (b *Builder) selectCommon(funcName string, field interface{}, fieldNew interface{}, prefix ...string) *Builder {
 	b.selectList = append(b.selectList, SelectItem{funcName, prefix, field, fieldNew})
 	return b

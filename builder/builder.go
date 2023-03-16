@@ -99,10 +99,6 @@ func getPrefixByField(valueOf reflect.Value, prefix ...string) string {
 
 //getTableNameByTable 根据传入的表信息，获取表名
 func getTableNameByTable(table interface{}) string {
-	if table == nil {
-		panic("当前table不能是nil")
-	}
-
 	valueOf := reflect.ValueOf(table)
 	if reflect.Ptr == valueOf.Kind() {
 		return getTableMap(valueOf.Pointer())
