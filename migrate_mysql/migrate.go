@@ -185,7 +185,7 @@ func (mm *MigrateExecutor) getColumnsFromDb(dbName string, tableName string) []C
 	mm.Builder.RawSql(sqlColumn).GetMany(&columnsFromDb)
 
 	for j := 0; j < len(columnsFromDb); j++ {
-		if columnsFromDb[j].DataType.String == "text" && columnsFromDb[j].MaxLength.Int64 == 65535 {
+		if columnsFromDb[j].DataType.String == "text" || columnsFromDb[j].DataType.String == "tinytext" || columnsFromDb[j].DataType.String == "longtext" || columnsFromDb[j].DataType.String == "mediumtext" {
 			columnsFromDb[j].MaxLength = null.IntFrom(0)
 		}
 	}
