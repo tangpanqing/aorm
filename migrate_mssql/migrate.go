@@ -374,7 +374,7 @@ func getIndexStr(index Index) string {
 func getDataType(fieldType string, fieldMap map[string]string) string {
 	var DataType string
 
-	dataTypeVal, dataTypeOk := fieldMap["driver"]
+	dataTypeVal, dataTypeOk := fieldMap["type"]
 	if dataTypeOk {
 		DataType = dataTypeVal
 		if DataType == "double" {
