@@ -8,11 +8,12 @@ func (b *Builder) Value(field interface{}, dest interface{}) error {
 
 	fieldName := getFieldNameByField(field)
 
-	rows, errRows := b.GetRows()
-	defer rows.Close()
+	stmt, rows, errRows := b.GetRows()
 	if errRows != nil {
 		return errRows
 	}
+	defer stmt.Close()
+	defer rows.Close()
 
 	destValue := reflect.ValueOf(dest).Elem()
 
@@ -47,11 +48,12 @@ func (b *Builder) Pluck(field interface{}, values interface{}) error {
 	b.Select(field)
 	fieldName := getFieldNameByField(field)
 
-	rows, errRows := b.GetRows()
-	defer rows.Close()
+	stmt, rows, errRows := b.GetRows()
 	if errRows != nil {
 		return errRows
 	}
+	defer stmt.Close()
+	defer rows.Close()
 
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()

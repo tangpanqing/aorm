@@ -208,11 +208,12 @@ func (b *Builder) InsertBatch(values interface{}) (int64, error) {
 
 // GetMany 查询记录(新)
 func (b *Builder) GetMany(values interface{}) error {
-	rows, errRows := b.GetRows()
-	defer rows.Close()
+	stmt, rows, errRows := b.GetRows()
 	if errRows != nil {
 		return errRows
 	}
+	defer stmt.Close()
+	defer rows.Close()
 
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
@@ -245,11 +246,12 @@ func (b *Builder) GetMany(values interface{}) error {
 func (b *Builder) GetOne(obj interface{}) error {
 	b.Limit(0, 1)
 
-	rows, errRows := b.GetRows()
-	defer rows.Close()
+	stmt, rows, errRows := b.GetRows()
 	if errRows != nil {
 		return errRows
 	}
+	defer stmt.Close()
+	defer rows.Close()
 
 	if rows.Next() {
 		destType := reflect.TypeOf(obj).Elem()
@@ -378,10 +380,10 @@ func (b *Builder) RawSql(query string, args ...interface{}) *Builder {
 }
 
 // GetRows 获取行操作
-func (b *Builder) GetRows() (*sql.Rows, error) {
+func (b *Builder) GetRows() (*sql.Stmt, *sql.Rows, error) {
 	query, args, err := b.GetSqlAndParams()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if b.Link.DriverName() == driver.Postgres {
@@ -395,16 +397,15 @@ func (b *Builder) GetRows() (*sql.Rows, error) {
 
 	smt, errSmt := b.Link.Prepare(query)
 	if errSmt != nil {
-		return nil, errSmt
+		return nil, nil, errSmt
 	}
-	//defer smt.Close()
 
 	rows, errRows := smt.Query(args...)
 	if errRows != nil {
-		return nil, errRows
+		return nil, nil, errRows
 	}
 
-	return rows, nil
+	return smt, rows, nil
 }
 
 // Exec 通用执行-新增,更新,删除
@@ -596,9 +597,22 @@ func (b *Builder) GetSqlAndParams() (string, []interface{}, error) {
 	limitStr, args := b.handleLimit(args)
 	lockStr := b.handleLockForUpdate()
 
-	query := selectStr + tableStr + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
+	//效率低
+	//query := selectStr + tableStr + joinStr + whereStr + groupStr + havingStr + orderStr + limitStr + lockStr
+	//return query, args, nil
 
-	return query, args, nil
+	var bd strings.Builder
+	bd.WriteString(selectStr)
+	bd.WriteString(tableStr)
+	bd.WriteString(joinStr)
+	bd.WriteString(whereStr)
+	bd.WriteString(groupStr)
+	bd.WriteString(havingStr)
+	bd.WriteString(orderStr)
+	bd.WriteString(limitStr)
+	bd.WriteString(lockStr)
+
+	return bd.String(), args, nil
 }
 
 // execAffected 通用执行-更新,删除

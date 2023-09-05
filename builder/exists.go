@@ -2,11 +2,12 @@ package builder
 
 // Exists 存在某记录
 func (b *Builder) Exists() (bool, error) {
-	rows, err := b.selectCommon("", "1", nil, "").Limit(0, 1).GetRows()
-	defer rows.Close()
+	stmt, rows, err := b.selectCommon("", "1", nil, "").Limit(0, 1).GetRows()
 	if err != nil {
 		return false, err
 	}
+	defer stmt.Close()
+	defer rows.Close()
 
 	if rows.Next() {
 		return true, nil
